@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finova - Voice Banking Dashboard</title>
+    <!-- Google Fonts: Inter for typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for beautiful icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Brand header section -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="logo-glow"></div>
+                <i class="fa-solid fa-building-columns brand-icon"></i>
+                <h1>Finova<span>Bank</span></h1>
+            </div>
+            
+            <div class="header-right">
+                <div class="api-status" id="api-status">
+                    <span class="status-indicator"></span>
+                    <span class="status-text">Connecting...</span>
+                </div>
+                <div class="user-profile hidden" id="user-profile">
+                    <span class="user-greeting">Welcome, <strong id="logged-user-name">-</strong></span>
+                    <button class="logout-btn" id="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Authentication Screens Container -->
+        <div id="auth-container" class="auth-wrapper animate-fade-in">
+            <div class="auth-card glass">
+                <!-- Toggle Tabs -->
+                <div class="auth-tabs">
+                    <button class="auth-tab active" id="tab-login-btn">Secure Login</button>
+                    <button class="auth-tab" id="tab-register-btn">Create Account</button>
+                </div>
+
+                <!-- 1. Credentials Login Form -->
+                <div class="auth-form-content" id="login-form-panel">
+                    <form id="login-form">
+                        <div class="input-group">
+                            <label for="login-username"><i class="fa-solid fa-user"></i> Username</label>
+                            <input type="text" id="login-username" placeholder="Enter username (e.g. alice)" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="login-password"><i class="fa-solid fa-lock"></i> Password</label>
+                            <input type="password" id="login-password" placeholder="Enter password (e.g. password123)" required>
+                        </div>
+                        <button type="submit" class="auth-submit-btn">Access Accounts</button>
+                    </form>
+                    
+                    <div class="auth-divider">
+                        <span>OR</span>
+                    </div>
+
+                    <!-- Voice Login Integration -->
+                    <div class="voice-login-section">
+                        <h4>Voice Passphrase Login</h4>
+                        <p class="voice-login-hint">Tap the mic and speak your registered passphrase</p>
+                        
+                        <div class="voice-login-mic-wrapper">
+                            <div class="auth-pulse-ring"></div>
+                            <button class="voice-login-mic-btn" id="voice-login-btn">
+                                <i class="fa-solid fa-microphone"></i>
+                            </button>
+                        </div>
+                        <div class="voice-login-status" id="voice-login-status">Click mic to begin</div>
+                        
+                        <div class="dummy-accounts-cheat">
+                            <span>Pre-configured Dummy accounts:</span>
+                            <ul>
+                                <li><strong>alice</strong>: "my voice is my secure password"</li>
+                                <li><strong>bob</strong>: "access code red"</li>
+                                <li><strong>charlie</strong>: "let me into my account"</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Registration Form -->
+                <div class="auth-form-content hidden" id="register-form-panel">
+                    <form id="register-form">
+                        <div class="input-grid">
+                            <div class="input-group">
+                                <label for="register-name"><i class="fa-solid fa-signature"></i> Full Name</label>
+                                <input type="text" id="register-name" placeholder="Enter full name" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="register-username"><i class="fa-solid fa-circle-user"></i> Choose Username</label>
+                                <input type="text" id="register-username" placeholder="Choose a unique username" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="register-password"><i class="fa-solid fa-key"></i> Choose Password</label>
+                                <input type="password" id="register-password" placeholder="Choose password" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="register-passphrase">
+                                    <i class="fa-solid fa-microphone-lines"></i> Voice Passphrase
+                                </label>
+                                <div class="passphrase-input-container">
+                                    <input type="text" id="register-passphrase" placeholder="e.g. open sesame" required>
+                                    <button type="button" class="dictate-btn" id="dictate-passphrase-btn" title="Speak to dictate passphrase">
+                                        <i class="fa-solid fa-microphone"></i>
+                                    </button>
+                                </div>
+                                <span class="input-subhint">This phrase will let you log in using your voice.</span>
+                            </div>
+                        </div>
+                        <button type="submit" class="auth-submit-btn register">Register Account</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Workspace Container (Hidden by default) -->
+        <div id="dashboard-container" class="hidden">
+            <main class="dashboard-grid">
+                <!-- Balances Panel -->
+                <section class="card glass balance-card animate-fade-in">
+                    <div class="card-header">
+                        <h2>Account Balances</h2>
+                        <i class="fa-solid fa-wallet card-header-icon"></i>
+                    </div>
+                    <div class="balance-grid">
+                        <div class="balance-item">
+                            <span class="balance-label">Savings Account</span>
+                            <span class="balance-value" id="savings-balance">$0.00</span>
+                        </div>
+                        <div class="balance-item">
+                            <span class="balance-label">Checking Account</span>
+                            <span class="balance-value" id="checking-balance">$0.00</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Fixed Deposit (FD) Panel -->
+                <section class="card glass fd-card animate-fade-in" id="fd-container">
+                    <div class="card-header">
+                        <h2>Recent Fixed Deposit</h2>
+                        <i class="fa-solid fa-chart-line card-header-icon"></i>
+                    </div>
+                    <div class="fd-content">
+                        <div class="fd-main-details">
+                            <span class="fd-label">Principal Amount</span>
+                            <span class="fd-value" id="fd-amount">$0.00</span>
+                        </div>
+                        <div class="fd-details-grid">
+                            <div class="fd-detail">
+                                <span class="fd-detail-label">Tenure</span>
+                                <span class="fd-detail-val" id="fd-tenure">-</span>
+                            </div>
+                            <div class="fd-detail">
+                                <span class="fd-detail-label">Interest Rate</span>
+                                <span class="fd-detail-val" id="fd-rate">-</span>
+                            </div>
+                            <div class="fd-detail">
+                                <span class="fd-detail-label">Maturity Date</span>
+                                <span class="fd-detail-val" id="fd-maturity">-</span>
+                            </div>
+                            <div class="fd-detail">
+                                <span class="fd-detail-label">Status</span>
+                                <span class="fd-status-badge" id="fd-status">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Transaction Ledger Panel -->
+                <section class="card glass transactions-card animate-fade-in">
+                    <div class="card-header">
+                        <h2>Recent Transactions</h2>
+                        <i class="fa-solid fa-list-check card-header-icon"></i>
+                    </div>
+                    <div class="table-container">
+                        <table class="transactions-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Description</th>
+                                    <th>Category</th>
+                                    <th>Type</th>
+                                    <th class="text-right">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactions-body">
+                                <!-- Populated dynamically via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Voice Control Center Panel -->
+                <section class="card glass voice-panel animate-fade-in">
+                    <div class="voice-assistant-ui">
+                        <div class="voice-status">
+                            <h3>Voice Assistant</h3>
+                            <p id="mic-hint-text">Tap the microphone to speak a banking command</p>
+                        </div>
+
+                        <!-- Holographic Soundwave / Mic Trigger -->
+                        <div class="mic-container">
+                            <div class="pulse-ring ring-1"></div>
+                            <div class="pulse-ring ring-2"></div>
+                            <div class="pulse-ring ring-3"></div>
+                            <button class="mic-button" id="mic-btn">
+                                <i class="fa-solid fa-microphone" id="mic-icon"></i>
+                            </button>
+                        </div>
+
+                        <!-- Transcript / Assistant Chat bubbles -->
+                        <div class="chat-display">
+                            <div class="chat-bubble user-bubble hidden" id="user-transcript-bubble">
+                                <span class="bubble-tag">You:</span>
+                                <p id="user-transcript">...</p>
+                            </div>
+                            <div class="chat-bubble assistant-bubble" id="assistant-response-bubble">
+                                <span class="bubble-tag">Finova Assistant:</span>
+                                <p id="assistant-response">Hello! How can I assist you with your banking today? Try saying "Send $100 to Alice" or "What is my recent fixed deposit tenure?".</p>
+                            </div>
+                        </div>
+
+                        <div class="suggested-queries">
+                            <span class="suggest-title">Try asking:</span>
+                            <div class="suggest-tags">
+                                <button class="suggest-tag">"Send $50 to Bob Jones from savings"</button>
+                                <button class="suggest-tag">"What is the tenure of my recent FD?"</button>
+                                <button class="suggest-tag">"Show my transaction history"</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- Script loading -->
+    <script src="app.js"></script>
+</body>
+</html>

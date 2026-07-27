@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+google-genai
+aiofiles
+python-dotenv
+sqlmodel
+pymysql
+cryptography
