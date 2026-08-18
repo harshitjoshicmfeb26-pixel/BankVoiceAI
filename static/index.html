@@ -1,17 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finova - Voice Banking Dashboard</title>
+    <title>NidhiVani AI - Voice Banking Dashboard</title>
     <!-- Google Fonts: Inter for typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <!-- FontAwesome for beautiful icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=1.0.1">
 </head>
+
 <body>
     <div class="app-container">
         <!-- Brand header section -->
@@ -19,17 +22,53 @@
             <div class="brand">
                 <div class="logo-glow"></div>
                 <i class="fa-solid fa-building-columns brand-icon"></i>
-                <h1>Finova<span>Bank</span></h1>
+                <h1>NidhiVani<span>AI</span></h1>
             </div>
-            
+
             <div class="header-right">
+                <div class="lang-selector-container">
+                    <select id="app-language-selector" class="lang-select" title="Select Language">
+                        <option value="en-IN" selected>English</option>
+                        <option value="hi-IN">Hindi (हिन्दी)</option>
+                        <option value="mr-IN">Marathi (मराठी)</option>
+                    </select>
+                </div>
                 <div class="api-status" id="api-status">
                     <span class="status-indicator"></span>
                     <span class="status-text">Connecting...</span>
                 </div>
-                <div class="user-profile hidden" id="user-profile">
+                <div class="user-profile hidden" id="user-profile"
+                    style="display: flex; align-items: center; gap: 0.6rem;">
+                    <div style="position: relative; display: flex; align-items: center;">
+                        <i class="fa-solid fa-circle-user" id="user-profile-icon"
+                            style="cursor: pointer; font-size: 1.6rem; color: var(--text-secondary); opacity: 0.8; transition: all 0.25s;"
+                            title="Show Full Name"></i>
+                        <div class="full-name-tooltip hidden" id="full-name-tooltip">
+                            -
+                        </div>
+                    </div>
                     <span class="user-greeting">Welcome, <strong id="logged-user-name">-</strong></span>
-                    <button class="logout-btn" id="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+
+                    <!-- Settings Gear Icon & Dropdown -->
+                    <div class="settings-container">
+                        <button type="button" class="settings-btn" id="settings-btn" title="Settings">
+                            <i class="fa-solid fa-gear"></i>
+                        </button>
+                        <div class="settings-dropdown hidden" id="settings-dropdown">
+                            <button type="button" id="dropdown-reset-password-btn">
+                                <i class="fa-solid fa-key"></i> Reset Password
+                            </button>
+                            <button type="button" id="dropdown-reset-voice-btn">
+                                <i class="fa-solid fa-microphone"></i> Reset Voice Phrase
+                            </button>
+                            <button type="button" id="dropdown-reset-face-btn">
+                                <i class="fa-solid fa-camera"></i> Reset/Enroll Face Scan
+                            </button>
+                        </div>
+                    </div>
+
+                    <button class="logout-btn" id="logout-btn"><i class="fa-solid fa-right-from-bracket"></i>
+                        Logout</button>
                 </div>
             </div>
         </header>
@@ -50,31 +89,88 @@
                             <label for="login-username"><i class="fa-solid fa-user"></i> Username</label>
                             <input type="text" id="login-username" placeholder="Enter username (e.g. alice)" required>
                         </div>
-                        <div class="input-group">
+                        <div class="input-group" style="margin-bottom: 0.4rem;">
                             <label for="login-password"><i class="fa-solid fa-lock"></i> Password</label>
-                            <input type="password" id="login-password" placeholder="Enter password (e.g. password123)" required>
+                            <input type="password" id="login-password" placeholder="Enter password (e.g. password123)"
+                                required>
+                        </div>
+                        <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem; width: 100%;">
+                            <a href="#" id="forgot-password-link"
+                                style="color: var(--text-secondary); font-size: 0.8rem; text-decoration: none; transition: all 0.2s;">Forgot
+                                Password?</a>
                         </div>
                         <button type="submit" class="auth-submit-btn">Access Accounts</button>
                     </form>
-                    
+
                     <div class="auth-divider">
                         <span>OR</span>
                     </div>
 
-                    <!-- Voice Login Integration -->
-                    <div class="voice-login-section">
-                        <h4>Voice Passphrase Login</h4>
-                        <p class="voice-login-hint">Tap the mic and speak your registered passphrase</p>
-                        
-                        <div class="voice-login-mic-wrapper">
-                            <div class="auth-pulse-ring"></div>
-                            <button class="voice-login-mic-btn" id="voice-login-btn">
-                                <i class="fa-solid fa-microphone"></i>
+                    <!-- Biometric Login Integration -->
+                    <div class="biometric-login-section">
+                        <h4>Biometric Authentication</h4>
+                        <p class="biometric-login-hint">Scan your face or speak your voice passphrase to log in</p>
+
+                        <div class="biometric-triggers-row">
+                            <!-- Voice Trigger -->
+                            <div class="biometric-trigger-wrapper voice-login-mic-wrapper">
+                                <div class="auth-pulse-ring"></div>
+                                <button class="voice-login-mic-btn" id="voice-login-btn" type="button"
+                                    title="Voice Passphrase Login">
+                                    <i class="fa-solid fa-microphone"></i>
+                                </button>
+                                <span class="biometric-label">Voice Login</span>
+                            </div>
+
+                            <!-- Face Trigger -->
+                            <div class="biometric-trigger-wrapper face-login-camera-wrapper">
+                                <div class="auth-pulse-ring" id="face-pulse-ring"></div>
+                                <button class="face-login-camera-btn" id="face-login-camera-toggle-btn" type="button"
+                                    title="Face Recognition Login">
+                                    <i class="fa-solid fa-camera"></i>
+                                </button>
+                                <span class="biometric-label">Face Login</span>
+                            </div>
+                        </div>
+
+                        <!-- Status Displays -->
+                        <div class="biometric-status-container">
+                            <div class="voice-login-status" id="voice-login-status">Click mic to begin</div>
+                            <div class="face-login-status" id="face-login-status">Or start camera to begin face login
+                            </div>
+                        </div>
+
+                        <!-- Voice Input -->
+                        <div class="input-group voice-username-group" style="margin-top: 1rem;">
+                            <label for="voice-login-username"><i class="fa-solid fa-user-tag"></i> Username (Optional
+                                for Voice)</label>
+                            <input type="text" id="voice-login-username" placeholder="Enter username (e.g. alice)">
+                        </div>
+
+                        <!-- Face Input (Hidden) -->
+                        <div class="input-group face-username-group hidden">
+                            <label for="face-login-username"><i class="fa-solid fa-user-tag"></i> Username</label>
+                            <input type="text" id="face-login-username" placeholder="Enter username (e.g. alice)">
+                        </div>
+
+                        <!-- Webcam Preview Container -->
+                        <div class="face-camera-wrapper" style="margin-top: 1rem;">
+                            <div class="face-camera-container" id="face-login-camera-container"
+                                style="display: none; margin: 0 auto;">
+                                <video id="face-login-video" autoplay playsinline class="webcam-preview"></video>
+                                <canvas id="face-login-canvas" width="320" height="240" style="display: none;"></canvas>
+                                <div class="face-scanner-line"></div>
+                            </div>
+                        </div>
+
+                        <div class="face-login-controls hidden" style="display: none !important;">
+                            <button type="button" class="action-btn hidden" id="face-login-capture-btn"
+                                style="display: none !important;">
+                                <i class="fa-solid fa-face-smile"></i> Scan Face
                             </button>
                         </div>
-                        <div class="voice-login-status" id="voice-login-status">Click mic to begin</div>
-                        
-                        <div class="dummy-accounts-cheat">
+
+                        <div class="dummy-accounts-cheat" style="margin-top: 1.2rem;">
                             <span>Pre-configured Dummy accounts:</span>
                             <ul>
                                 <li><strong>alice</strong>: "my voice is my secure password"</li>
@@ -85,6 +181,7 @@
                     </div>
                 </div>
 
+
                 <!-- 2. Registration Form -->
                 <div class="auth-form-content hidden" id="register-form-panel">
                     <form id="register-form">
@@ -94,12 +191,21 @@
                                 <input type="text" id="register-name" placeholder="Enter full name" required>
                             </div>
                             <div class="input-group">
-                                <label for="register-username"><i class="fa-solid fa-circle-user"></i> Choose Username</label>
-                                <input type="text" id="register-username" placeholder="Choose a unique username" required>
+                                <label for="register-username"><i class="fa-solid fa-circle-user"></i> Choose
+                                    Username</label>
+                                <input type="text" id="register-username" placeholder="Choose a unique username"
+                                    required>
                             </div>
                             <div class="input-group">
                                 <label for="register-password"><i class="fa-solid fa-key"></i> Choose Password</label>
                                 <input type="password" id="register-password" placeholder="Choose password" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="register-mpin"><i class="fa-solid fa-shield-halved"></i> Set MPIN (4
+                                    Digits)</label>
+                                <input type="password" id="register-mpin" placeholder="Enter 4-digit PIN"
+                                    pattern="\d{4}" maxlength="4" required>
+                                <span class="input-subhint">A 4-digit security PIN for confirming transfers.</span>
                             </div>
                             <div class="input-group">
                                 <label for="register-passphrase">
@@ -107,13 +213,61 @@
                                 </label>
                                 <div class="passphrase-input-container">
                                     <input type="text" id="register-passphrase" placeholder="e.g. open sesame" required>
-                                    <button type="button" class="dictate-btn" id="dictate-passphrase-btn" title="Speak to dictate passphrase">
+                                    <button type="button" class="dictate-btn" id="dictate-passphrase-btn"
+                                        title="Speak to dictate passphrase">
                                         <i class="fa-solid fa-microphone"></i>
                                     </button>
                                 </div>
                                 <span class="input-subhint">This phrase will let you log in using your voice.</span>
+                                <div id="voice-enrollment-badge" class="voice-enrollment-badge"></div>
+                            </div>
+                            <div class="input-group">
+                                <label for="register-question"><i class="fa-solid fa-circle-question"></i> Security
+                                    Question</label>
+                                <select id="register-question" required>
+                                    <option value="" disabled selected>Select a security question</option>
+                                    <option value="What is your favorite pet's name?">What is your favorite pet's name?
+                                    </option>
+                                    <option value="What was the name of your first school?">What was the name of your
+                                        first school?</option>
+                                    <option value="In which city were you born?">In which city were you born?</option>
+                                    <option value="What is your mother's maiden name?">What is your mother's maiden
+                                        name?</option>
+                                    <option value="What is your favorite book?">What is your favorite book?</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="register-answer"><i class="fa-solid fa-pen"></i> Security Answer</label>
+                                <input type="text" id="register-answer" placeholder="Enter your answer" required>
+                            </div>
+                            <div class="input-group">
+                                <label><i class="fa-solid fa-camera"></i> Face Scan Registration (Optional)</label>
+                                <div class="face-register-container">
+                                    <div class="face-camera-wrapper">
+                                        <div class="face-camera-container" id="face-register-camera-container"
+                                            style="display: none;">
+                                            <video id="face-register-video" autoplay playsinline
+                                                class="webcam-preview"></video>
+                                            <canvas id="face-register-canvas" width="320" height="240"
+                                                style="display: none;"></canvas>
+                                            <div class="face-scanner-line"></div>
+                                        </div>
+                                    </div>
+                                    <div class="face-register-controls"
+                                        style="margin-top: 0.5rem; display: flex; gap: 0.5rem; justify-content: center;">
+                                        <button type="button" class="action-btn" id="face-register-camera-toggle-btn">
+                                            <i class="fa-solid fa-video"></i> Start Camera
+                                        </button>
+                                        <button type="button" class="action-btn hidden" id="face-register-capture-btn">
+                                            <i class="fa-solid fa-circle-dot"></i> Capture Face
+                                        </button>
+                                    </div>
+                                    <div id="face-register-status" class="face-enrollment-badge">No face scanned yet
+                                    </div>
+                                </div>
                             </div>
                         </div>
+
                         <button type="submit" class="auth-submit-btn register">Register Account</button>
                     </form>
                 </div>
@@ -122,126 +276,831 @@
 
         <!-- Dashboard Workspace Container (Hidden by default) -->
         <div id="dashboard-container" class="hidden">
-            <main class="dashboard-grid">
-                <!-- Balances Panel -->
-                <section class="card glass balance-card animate-fade-in">
-                    <div class="card-header">
-                        <h2>Account Balances</h2>
-                        <i class="fa-solid fa-wallet card-header-icon"></i>
-                    </div>
-                    <div class="balance-grid">
-                        <div class="balance-item">
-                            <span class="balance-label">Savings Account</span>
-                            <span class="balance-value" id="savings-balance">$0.00</span>
+            <!-- Navigation Tabs -->
+            <div class="dashboard-tabs" id="dashboard-tabs">
+                <button class="dash-tab active" id="tab-summary-btn">
+                    <i class="fa-solid fa-chart-simple"></i> <span id="text-tab-dashboard">Dashboard</span>
+                </button>
+                <button class="dash-tab" id="tab-analytics-btn">
+                    <i class="fa-solid fa-chart-line"></i> <span id="text-tab-analytics">Analytics & Insights</span>
+                </button>
+                <button class="dash-tab" id="tab-voice-btn">
+                    <i class="fa-solid fa-microphone"></i> <span id="text-tab-voice">Voice Transaction</span>
+                </button>
+                <button class="dash-tab" id="tab-knowledge-btn">
+                    <i class="fa-solid fa-graduation-cap"></i> <span id="text-tab-knowledge">Knowledge Base</span>
+                </button>
+            </div>
+
+            <!-- 1. Standard Dashboard View -->
+            <div id="main-dashboard-view">
+                <main class="dashboard-grid">
+                    <!-- Balances Panel -->
+                    <section class="card glass balance-card animate-fade-in">
+                        <div class="card-header">
+                            <h2>Account Balances</h2>
+                            <i class="fa-solid fa-wallet card-header-icon"></i>
                         </div>
-                        <div class="balance-item">
-                            <span class="balance-label">Checking Account</span>
-                            <span class="balance-value" id="checking-balance">$0.00</span>
+                        <div class="balance-grid">
+                            <div class="balance-item">
+                                <span class="balance-label">Savings Account</span>
+                                <div class="balance-value-container"
+                                    style="display: flex; align-items: center; gap: 0.6rem;">
+                                    <i class="fa-solid fa-eye-slash toggle-balance-visibility"
+                                        data-target="savings-balance"
+                                        style="cursor: pointer; font-size: 1.1rem; color: var(--text-secondary); opacity: 0.7; transition: all 0.2s;"
+                                        title="Show/Hide Balance"></i>
+                                    <span class="balance-value" id="savings-balance">₹ ••••••</span>
+                                </div>
+                            </div>
+                            <div class="balance-item">
+                                <span class="balance-label">Current Account</span>
+                                <div class="balance-value-container"
+                                    style="display: flex; align-items: center; gap: 0.6rem;">
+                                    <i class="fa-solid fa-eye-slash toggle-balance-visibility"
+                                        data-target="checking-balance"
+                                        style="cursor: pointer; font-size: 1.1rem; color: var(--text-secondary); opacity: 0.7; transition: all 0.2s;"
+                                        title="Show/Hide Balance"></i>
+                                    <span class="balance-value" id="checking-balance">₹ ••••••</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Fixed Deposit (FD) Panel -->
+                    <section class="card glass fd-card animate-fade-in" id="fd-container">
+                        <div class="card-header">
+                            <h2>Recent Fixed Deposit</h2>
+                            <i class="fa-solid fa-chart-line card-header-icon"></i>
+                        </div>
+                        <div class="fd-content">
+                            <div class="fd-main-details">
+                                <span class="fd-label">Principal Amount</span>
+                                <div class="fd-value-container"
+                                    style="display: flex; align-items: center; gap: 0.6rem;">
+                                    <i class="fa-solid fa-eye-slash toggle-balance-visibility" data-target="fd-amount"
+                                        style="cursor: pointer; font-size: 1.1rem; color: var(--text-secondary); opacity: 0.7; transition: all 0.2s;"
+                                        title="Show/Hide FD Amount"></i>
+                                    <span class="fd-value" id="fd-amount">₹ ••••••</span>
+                                </div>
+                            </div>
+                            <div class="fd-details-grid">
+                                <div class="fd-detail">
+                                    <span class="fd-detail-label">Tenure</span>
+                                    <span class="fd-detail-val" id="fd-tenure">-</span>
+                                </div>
+                                <div class="fd-detail">
+                                    <span class="fd-detail-label">Interest Rate</span>
+                                    <span class="fd-detail-val" id="fd-rate">-</span>
+                                </div>
+                                <div class="fd-detail">
+                                    <span class="fd-detail-label">Maturity Date</span>
+                                    <span class="fd-detail-val" id="fd-maturity">-</span>
+                                </div>
+                                <div class="fd-detail">
+                                    <span class="fd-detail-label">Status</span>
+                                    <span class="fd-status-badge" id="fd-status">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Quick Transfer Panel -->
+                    <section class="card glass transfer-card animate-fade-in" id="quick-transfer-container">
+                        <div class="card-header">
+                            <h2>Quick Transfer</h2>
+                            <i class="fa-solid fa-paper-plane card-header-icon"></i>
+                        </div>
+                        <form id="dashboard-payment-form" class="transfer-form-grid">
+                            <div class="input-group">
+                                <label for="payment-recipient"><i class="fa-solid fa-user"></i> Recipient</label>
+                                <select id="payment-recipient" required>
+                                    <option value="" disabled selected>Select Recipient</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="payment-source"><i class="fa-solid fa-wallet"></i> Pay From</label>
+                                <select id="payment-source" required>
+                                    <option value="savings" selected>Savings</option>
+                                    <option value="checking">Current</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="payment-amount"><i class="fa-solid fa-indian-rupee-sign"></i> Amount</label>
+                                <input type="number" id="payment-amount" placeholder="0.00" min="0.01" step="0.01"
+                                    required>
+                            </div>
+                            <div class="input-group">
+                                <label for="payment-mpin"><i class="fa-solid fa-lock"></i> 4-Digit MPIN</label>
+                                <input type="password" id="payment-mpin" placeholder="••••" maxlength="4"
+                                    pattern="\d{4}" required autocomplete="new-password">
+                            </div>
+                            <button type="submit" class="auth-submit-btn">
+                                <i class="fa-solid fa-paper-plane"></i> Send Payment
+                            </button>
+                        </form>
+                    </section>
+
+
+                    <!-- Transaction Ledger Panel -->
+                    <section class="card glass transactions-card animate-fade-in">
+                        <div class="card-header">
+                            <h2>Recent Transactions</h2>
+                            <div class="card-header-actions" style="display: flex; gap: 0.75rem; align-items: center;">
+                                <div class="search-input-wrapper">
+                                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                                    <input type="text" id="tx-search-input" placeholder="Search transactions...">
+                                </div>
+                                <button class="header-action-btn" id="statement-modal-btn">
+                                    <i class="fa-solid fa-file-pdf"></i> Download PDF
+                                </button>
+                            </div>
+                            <i class="fa-solid fa-list-check card-header-icon"></i>
+                        </div>
+                        <div class="table-container">
+                            <table class="transactions-table">
+                                <thead>
+                                    <tr>
+                                        <th id="lbl-th-date1">Date</th>
+                                        <th id="lbl-th-desc1">Description</th>
+                                        <th id="lbl-th-cat1">Category</th>
+                                        <th id="lbl-th-type1">Type</th>
+                                        <th class="text-right" id="lbl-th-amount1">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transactions-body">
+                                    <!-- Populated dynamically via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </main>
+            </div>
+
+            <!-- 2. Analytics & Insights View (Hidden by default) -->
+            <div id="analytics-dashboard-view" class="hidden animate-fade-in">
+                <!-- Filters Section -->
+                <section class="card glass filters-card">
+                    <div class="filters-container">
+                        <div class="filter-group">
+                            <label for="chart-duration-filter"><i class="fa-solid fa-calendar-days"></i> <span
+                                    id="lbl-filter-duration">Duration</span></label>
+                            <select id="chart-duration-filter">
+                                <option value="7">Last 7 Days</option>
+                                <option value="30" selected>Last 30 Days</option>
+                                <option value="180">Last 6 Months</option>
+                                <option value="365">Last Year</option>
+                                <option value="custom">Custom Date Range</option>
+                                <option value="all">All Time</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group hidden" id="custom-date-filters">
+                            <div class="date-inputs-row">
+                                <div class="date-input-item">
+                                    <label for="chart-start-date">Start Date</label>
+                                    <input type="date" id="chart-start-date">
+                                </div>
+                                <div class="date-input-item">
+                                    <label for="chart-end-date">End Date</label>
+                                    <input type="date" id="chart-end-date">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="filter-group">
+                            <label for="chart-category-filter"><i class="fa-solid fa-tags"></i> <span
+                                    id="lbl-filter-category">Category</span></label>
+                            <select id="chart-category-filter">
+                                <option value="all" selected>All Categories</option>
+                                <option value="Food/Drinks">Food/Drinks</option>
+                                <option value="Shopping">Shopping</option>
+                                <option value="Transport">Transport</option>
+                                <option value="Groceries">Groceries</option>
+                                <option value="Health">Health</option>
+                                <option value="Investments">Investments</option>
+                                <option value="Income">Income</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label for="chart-type-filter"><i class="fa-solid fa-filter"></i> <span
+                                    id="lbl-filter-type">Transaction Type</span></label>
+                            <select id="chart-type-filter">
+                                <option value="all" selected>All Types</option>
+                                <option value="Debit">Spendings (Debits)</option>
+                                <option value="Credit">Earnings (Credits)</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-actions">
+                            <button type="button" class="header-action-btn" id="reset-analytics-filters-btn">
+                                <i class="fa-solid fa-rotate-left"></i> Reset
+                            </button>
                         </div>
                     </div>
                 </section>
 
-                <!-- Fixed Deposit (FD) Panel -->
-                <section class="card glass fd-card animate-fade-in" id="fd-container">
-                    <div class="card-header">
-                        <h2>Recent Fixed Deposit</h2>
-                        <i class="fa-solid fa-chart-line card-header-icon"></i>
-                    </div>
-                    <div class="fd-content">
-                        <div class="fd-main-details">
-                            <span class="fd-label">Principal Amount</span>
-                            <span class="fd-value" id="fd-amount">$0.00</span>
+                <!-- Metrics Summary Cards -->
+                <div class="metrics-grid">
+                    <div class="metric-card card glass border-income">
+                        <div class="metric-info">
+                            <span class="metric-label" id="lbl-metric-income">Total Income</span>
+                            <span class="metric-value credit" id="metric-total-income">₹0.00</span>
                         </div>
-                        <div class="fd-details-grid">
-                            <div class="fd-detail">
-                                <span class="fd-detail-label">Tenure</span>
-                                <span class="fd-detail-val" id="fd-tenure">-</span>
-                            </div>
-                            <div class="fd-detail">
-                                <span class="fd-detail-label">Interest Rate</span>
-                                <span class="fd-detail-val" id="fd-rate">-</span>
-                            </div>
-                            <div class="fd-detail">
-                                <span class="fd-detail-label">Maturity Date</span>
-                                <span class="fd-detail-val" id="fd-maturity">-</span>
-                            </div>
-                            <div class="fd-detail">
-                                <span class="fd-detail-label">Status</span>
-                                <span class="fd-status-badge" id="fd-status">-</span>
-                            </div>
+                        <div class="metric-icon-box credit-bg">
+                            <i class="fa-solid fa-arrow-trend-up"></i>
                         </div>
                     </div>
-                </section>
 
-                <!-- Transaction Ledger Panel -->
-                <section class="card glass transactions-card animate-fade-in">
+                    <div class="metric-card card glass border-expense">
+                        <div class="metric-info">
+                            <span class="metric-label" id="lbl-metric-expense">Total Spending</span>
+                            <span class="metric-value debit" id="metric-total-expense">₹0.00</span>
+                        </div>
+                        <div class="metric-icon-box debit-bg">
+                            <i class="fa-solid fa-arrow-trend-down"></i>
+                        </div>
+                    </div>
+
+                    <div class="metric-card card glass border-savings">
+                        <div class="metric-info">
+                            <span class="metric-label" id="lbl-metric-savings">Net Savings</span>
+                            <span class="metric-value" id="metric-net-savings">₹0.00</span>
+                        </div>
+                        <div class="metric-icon-box savings-bg">
+                            <i class="fa-solid fa-piggy-bank"></i>
+                        </div>
+                    </div>
+
+                    <div class="metric-card card glass border-count">
+                        <div class="metric-info">
+                            <span class="metric-label" id="lbl-metric-count">Transactions</span>
+                            <span class="metric-value" id="metric-tx-count">0</span>
+                        </div>
+                        <div class="metric-icon-box count-bg">
+                            <i class="fa-solid fa-list-ol"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section Grid -->
+                <div class="charts-layout-grid">
+                    <!-- Line Chart Card -->
+                    <section class="card glass chart-card-wrapper">
+                        <div class="card-header">
+                            <h2 id="lbl-chart-spending-trend">Spending Trend Over Time</h2>
+                            <i class="fa-solid fa-chart-line card-header-icon"></i>
+                        </div>
+                        <div class="chart-canvas-container">
+                            <canvas id="spending-trend-chart"></canvas>
+                        </div>
+                    </section>
+
+                    <!-- Doughnut Chart Card -->
+                    <section class="card glass chart-card-wrapper">
+                        <div class="card-header">
+                            <h2 id="lbl-chart-spending-category">Spending by Category</h2>
+                            <i class="fa-solid fa-chart-pie card-header-icon"></i>
+                        </div>
+                        <div class="chart-canvas-container">
+                            <canvas id="spending-category-chart"></canvas>
+                        </div>
+                    </section>
+
+                    <!-- Grouped Bar Chart Card (Income vs Expense) -->
+                    <section class="card glass chart-card-wrapper full-width-chart">
+                        <div class="card-header">
+                            <h2 id="lbl-chart-income-vs-expense">Income vs Expenses Comparison</h2>
+                            <i class="fa-solid fa-chart-bar card-header-icon"></i>
+                        </div>
+                        <div class="chart-canvas-container">
+                            <canvas id="income-expense-chart"></canvas>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <!-- 3. Voice Transaction View (Hidden by default) -->
+            <div id="voice-transaction-dashboard-view" class="hidden animate-fade-in">
+                <!-- Side by side container -->
+                <div class="voice-page-layout">
+                    <!-- Left Column: Mic Action Card -->
+                    <section class="card glass voice-mic-side-panel">
+                        <div class="card-header">
+                            <h2 id="lbl-voice-mic-header">Voice Control</h2>
+                            <i class="fa-solid fa-microphone card-header-icon"></i>
+                        </div>
+                        <div class="voice-mic-content">
+                            <div class="mic-container">
+                                <div class="pulse-ring ring-1"></div>
+                                <div class="pulse-ring ring-2"></div>
+                                <div class="pulse-ring ring-3"></div>
+                                <button class="mic-button" id="mic-btn">
+                                    <i class="fa-solid fa-microphone" id="mic-icon"></i>
+                                </button>
+                            </div>
+                            <span id="mic-hint-text">Tap mic to speak command</span>
+                            <div class="voice-active-indicator">
+                                <div class="visualizer-bar bar1"></div>
+                                <div class="visualizer-bar bar2"></div>
+                                <div class="visualizer-bar bar3"></div>
+                                <div class="visualizer-bar bar4"></div>
+                                <div class="visualizer-bar bar5"></div>
+                            </div>
+
+                            <!-- Voice suggested commands inside mic panel -->
+                            <div class="suggested-queries-box">
+                                <span class="suggest-title"><i class="fa-solid fa-lightbulb"></i> Try saying:</span>
+                                <div class="suggest-tags">
+                                    <button class="suggest-tag">"Check savings balance"</button>
+                                    <button class="suggest-tag">"Send ₹100 to Alice"</button>
+                                    <button class="suggest-tag">"Show transaction history"</button>
+                                    <button class="suggest-tag">"Show fixed deposit details"</button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Right Column: WhatsApp themed chat -->
+                    <section class="whatsapp-chat-container">
+                        <div class="whatsapp-header">
+                            <div class="whatsapp-avatar">NV</div>
+                            <div class="whatsapp-chat-info">
+                                <span class="whatsapp-chat-name">NidhiVani Assistant</span>
+                                <span class="whatsapp-chat-status">online</span>
+                            </div>
+
+                        </div>
+
+                        <div class="whatsapp-chat-body" id="chat-display">
+                            <div class="chat-bubble assistant-bubble">
+                                <span class="bubble-tag">NidhiVani Assistant:</span>
+                                <p>Hello! How can I assist you with your banking today? Try saying: "Send ₹100 to Alice"
+                                    or "Show my transactions".</p>
+                            </div>
+                        </div>
+
+                        <!-- MPIN Typing Input (hidden by default, positioned inside WhatsApp Chat panel) -->
+                        <div class="mpin-input-wrapper hidden" id="mpin-input-wrapper">
+                            <span class="mpin-label"><i class="fa-solid fa-lock"></i> Secure MPIN Entry</span>
+                            <div class="mpin-field-row">
+                                <input type="password" id="type-mpin-input" placeholder="••••" maxlength="4"
+                                    pattern="\d{4}" autocomplete="one-time-code">
+                                <button type="button" class="mpin-submit-btn" id="mpin-submit-btn">
+                                    <i class="fa-solid fa-check"></i> Verify
+                                </button>
+                                <button type="button" class="mpin-cancel-btn" id="mpin-cancel-btn"
+                                    title="Cancel Transfer">
+                                    <i class="fa-solid fa-xmark"></i> Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Bottom Section: Transaction ledger table -->
+                <section class="card glass transactions-card" style="margin-top: 1.5rem;">
                     <div class="card-header">
-                        <h2>Recent Transactions</h2>
+                        <h2 id="lbl-voice-transactions-title">Voice Transactions Ledger</h2>
+                        <div class="card-header-actions" style="display: flex; gap: 0.75rem; align-items: center;">
+                            <div class="search-input-wrapper">
+                                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                                <input type="text" id="voice-tx-search-input"
+                                    placeholder="Search voice transactions...">
+                            </div>
+                            <button class="header-action-btn" id="voice-statement-modal-btn">
+                                <i class="fa-solid fa-file-pdf"></i> Download PDF
+                            </button>
+                        </div>
                         <i class="fa-solid fa-list-check card-header-icon"></i>
                     </div>
                     <div class="table-container">
                         <table class="transactions-table">
                             <thead>
                                 <tr>
-                                    <th>Date</th>
-                                    <th>Description</th>
-                                    <th>Category</th>
-                                    <th>Type</th>
-                                    <th class="text-right">Amount</th>
+                                    <th id="lbl-th-date2">Date</th>
+                                    <th id="lbl-th-desc2">Description</th>
+                                    <th id="lbl-th-cat2">Category</th>
+                                    <th id="lbl-th-type2">Type</th>
+                                    <th class="text-right" id="lbl-th-amount2">Amount</th>
                                 </tr>
                             </thead>
-                            <tbody id="transactions-body">
+                            <tbody id="voice-transactions-body">
                                 <!-- Populated dynamically via JS -->
                             </tbody>
                         </table>
                     </div>
                 </section>
+            </div>
 
-                <!-- Voice Control Center Panel -->
-                <section class="card glass voice-panel animate-fade-in">
-                    <div class="voice-assistant-ui">
-                        <div class="voice-status">
-                            <h3>Voice Assistant</h3>
-                            <p id="mic-hint-text">Tap the microphone to speak a banking command</p>
+            <!-- 4. Knowledge Base View (Hidden by default) -->
+            <div id="knowledge-dashboard-view" class="hidden animate-fade-in">
+                <!-- Help Overview Cards -->
+                <div class="knowledge-cards-grid">
+                    <div class="k-card card glass">
+                        <div class="k-card-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                        <h3 id="lbl-k-card-title1">Transaction Security</h3>
+                        <p id="lbl-k-card-desc1">All payments require your unique 4-digit MPIN. Never share your MPIN or
+                            passwords with anyone. To add a layer of safety, register your unique voice biometric print.
+                        </p>
+                    </div>
+                    <div class="k-card card glass">
+                        <div class="k-card-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div>
+                        <h3 id="lbl-k-card-title2">Limits & Rules</h3>
+                        <p id="lbl-k-card-desc2">Savings accounts have a daily voice transfer limit of ₹50,000. Fixed
+                            deposit interest rates range from 6.5% to 7.8% depending on the lock-in tenure.</p>
+                    </div>
+                    <div class="k-card card glass">
+                        <div class="k-card-icon"><i class="fa-solid fa-microphone-lines"></i></div>
+                        <h3 id="lbl-k-card-title3">Voice Commands Guide</h3>
+                        <p id="lbl-k-card-desc3">NidhiVani AI uses advanced LangGraph routing to parse natural spoken
+                            commands. Try speaking in English, Hindi, or Marathi directly.</p>
+                    </div>
+                </div>
+
+                <div class="knowledge-main-layout">
+                    <!-- Left: Interactive Voice Commands List -->
+                    <section class="card glass k-commands-section">
+                        <div class="card-header">
+                            <h2 id="lbl-k-prompts-title">Example Voice Prompts</h2>
+                            <i class="fa-solid fa-lightbulb card-header-icon"></i>
+                        </div>
+                        <p class="section-intro-text" id="lbl-k-prompts-intro">Click on any of the example commands
+                            below to try it out in the Voice Assistant panel:</p>
+
+                        <div class="commands-category">
+                            <h4><i class="fa-solid fa-wallet"></i> <span id="lbl-k-cat-account">Account & Balance</span>
+                            </h4>
+                            <div class="click-prompts">
+                                <button class="k-prompt-btn" id="btn-k-prompt-sbal">"What is my savings account
+                                    balance?"</button>
+                                <button class="k-prompt-btn" id="btn-k-prompt-ledger">"Show my recent transaction
+                                    ledger"</button>
+                                <button class="k-prompt-btn" id="btn-k-prompt-cbal">"Check my current account
+                                    balance"</button>
+                            </div>
                         </div>
 
-                        <!-- Holographic Soundwave / Mic Trigger -->
-                        <div class="mic-container">
-                            <div class="pulse-ring ring-1"></div>
-                            <div class="pulse-ring ring-2"></div>
-                            <div class="pulse-ring ring-3"></div>
-                            <button class="mic-button" id="mic-btn">
-                                <i class="fa-solid fa-microphone" id="mic-icon"></i>
+                        <div class="commands-category">
+                            <h4><i class="fa-solid fa-paper-plane"></i> <span id="lbl-k-cat-transfer">Money
+                                    Transfers</span></h4>
+                            <div class="click-prompts">
+                                <button class="k-prompt-btn" id="btn-k-prompt-send-alice">"Send ₹200 to Alice Smith from
+                                    savings"</button>
+                                <button class="k-prompt-btn" id="btn-k-prompt-send-bob">"Transfer ₹1500 to Bob Jones
+                                    from current"</button>
+                            </div>
+                        </div>
+
+                        <div class="commands-category">
+                            <h4><i class="fa-solid fa-chart-line"></i> <span id="lbl-k-cat-fd">Fixed Deposits</span>
+                            </h4>
+                            <div class="click-prompts">
+                                <button class="k-prompt-btn" id="btn-k-prompt-fd-details">"Show my fixed deposit
+                                    details"</button>
+                                <button class="k-prompt-btn" id="btn-k-prompt-fd-rates">"What are the latest FD interest
+                                    rates?"</button>
+                            </div>
+                        </div>
+
+                        <div class="commands-category">
+                            <h4><i class="fa-solid fa-globe"></i> <span id="lbl-k-cat-multilingual">Multilingual
+                                    Examples</span></h4>
+                            <div class="click-prompts">
+                                <button class="k-prompt-btn text-hindi"
+                                    data-command="मेरे बचत खाते का बैलेंस बताओ">"मेरे बचत खाते का बैलेंस बताओ"
+                                    (Hindi)</button>
+                                <button class="k-prompt-btn text-marathi" data-command="माझे फिक्स डिपॉझिट दाखवा">"माझे
+                                    फिक्स डिपॉझिट दाखवा" (Marathi)</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Right: Ask NidhiVani Support Desk (Text Query Input) -->
+                    <section class="card glass k-support-desk">
+                        <div class="card-header">
+                            <h2>Support Desk</h2>
+                            <i class="fa-solid fa-circle-question card-header-icon"></i>
+                        </div>
+                        <p class="section-intro-text" id="lbl-k-support-intro">Have questions about interest rates,
+                            banking policies, or branch hours? Ask our support specialist below:</p>
+
+                        <form id="knowledge-query-form" class="k-query-form">
+                            <div class="input-group">
+                                <label for="k-query-input" id="lbl-k-query-label"><i class="fa-solid fa-pen"></i> Type
+                                    your question</label>
+                                <textarea id="k-query-input"
+                                    placeholder="e.g. What are the branch timings? Do you offer loans?" required
+                                    rows="3"></textarea>
+                            </div>
+                            <button type="submit" class="auth-submit-btn" id="btn-k-submit">
+                                <i class="fa-solid fa-paper-plane"></i> Submit Inquiry
                             </button>
-                        </div>
+                        </form>
 
-                        <!-- Transcript / Assistant Chat bubbles -->
-                        <div class="chat-display">
-                            <div class="chat-bubble user-bubble hidden" id="user-transcript-bubble">
-                                <span class="bubble-tag">You:</span>
-                                <p id="user-transcript">...</p>
+                        <!-- Response Display Area -->
+                        <div class="k-response-box hidden" id="k-response-box">
+                            <div class="k-response-header">
+                                <i class="fa-solid fa-user-tie"></i> <span id="lbl-k-response-title">Support Specialist
+                                    Response:</span>
                             </div>
-                            <div class="chat-bubble assistant-bubble" id="assistant-response-bubble">
-                                <span class="bubble-tag">Finova Assistant:</span>
-                                <p id="assistant-response">Hello! How can I assist you with your banking today? Try saying "Send $100 to Alice" or "What is my recent fixed deposit tenure?".</p>
+                            <div class="k-response-body" id="k-response-body">
+                                <!-- Populated dynamically -->
                             </div>
                         </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
 
-                        <div class="suggested-queries">
-                            <span class="suggest-title">Try asking:</span>
-                            <div class="suggest-tags">
-                                <button class="suggest-tag">"Send $50 to Bob Jones from savings"</button>
-                                <button class="suggest-tag">"What is the tenure of my recent FD?"</button>
-                                <button class="suggest-tag">"Show my transaction history"</button>
-                            </div>
+    <!-- PDF Statement Download Modal (hidden by default) -->
+    <div id="statement-modal" class="modal-overlay hidden">
+        <div class="modal-content glass animate-scale-in">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-file-pdf"></i> Download Statement</h3>
+                <button class="close-modal-btn" id="close-statement-modal">&times;</button>
+            </div>
+            <form id="statement-form">
+                <div class="modal-body">
+                    <label class="modal-section-label">Select Transaction Limit / Scope</label>
+                    <div class="statement-options-grid">
+                        <label class="option-card">
+                            <input type="radio" name="statement-scope" value="10" checked>
+                            <span class="option-details">
+                                <strong>Last 10</strong>
+                                <span>Recent transactions</span>
+                            </span>
+                        </label>
+                        <label class="option-card">
+                            <input type="radio" name="statement-scope" value="50">
+                            <span class="option-details">
+                                <strong>Last 50</strong>
+                                <span>Extended statement</span>
+                            </span>
+                        </label>
+                        <label class="option-card">
+                            <input type="radio" name="statement-scope" value="100">
+                            <span class="option-details">
+                                <strong>Last 100</strong>
+                                <span>Detailed statement</span>
+                            </span>
+                        </label>
+                        <label class="option-card" id="datewise-option">
+                            <input type="radio" name="statement-scope" value="datewise">
+                            <span class="option-details">
+                                <strong>Datewise</strong>
+                                <span>Specific dates</span>
+                            </span>
+                        </label>
+                    </div>
+
+                    <!-- Date range input group (hidden by default) -->
+                    <div id="date-range-inputs" class="date-range-container hidden">
+                        <div class="date-input-group">
+                            <label for="statement-start-date">From Date</label>
+                            <input type="date" id="statement-start-date">
+                        </div>
+                        <div class="date-input-group">
+                            <label for="statement-end-date">To Date</label>
+                            <input type="date" id="statement-end-date">
                         </div>
                     </div>
-                </section>
-            </main>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" id="cancel-statement-btn">Cancel</button>
+                    <button type="submit" class="btn-download" id="generate-pdf-btn">
+                        <i class="fa-solid fa-download"></i> Generate PDF
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
+    <!-- Voice 2FA Verification Modal (hidden by default) -->
+    <div id="voice-2fa-modal" class="modal-overlay hidden">
+        <div class="modal-content glass voice-2fa-content animate-scale-in">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-shield-halved"></i> Voice Multi-Factor Auth</h3>
+                <button class="close-modal-btn" id="close-voice-2fa-modal">&times;</button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="voice-2fa-desc">For added security, please verify your identity using your enrolled voice
+                    print.</p>
+                <div class="voice-2fa-passphrase-box">
+                    <span class="passphrase-label">Read aloud the following passphrase:</span>
+                    <strong class="passphrase-text" id="voice-2fa-passphrase-prompt">"my voice is my secure
+                        password"</strong>
+                </div>
+
+                <div class="voice-2fa-mic-container">
+                    <div class="pulse-ring voice-2fa-ring-1"></div>
+                    <div class="pulse-ring voice-2fa-ring-2"></div>
+                    <div class="pulse-ring voice-2fa-ring-3"></div>
+                    <button class="voice-login-mic-btn voice-2fa-mic-btn" id="voice-2fa-mic-btn" type="button">
+                        <i class="fa-solid fa-microphone" id="voice-2fa-mic-icon"></i>
+                    </button>
+                </div>
+                <div class="voice-2fa-status" id="voice-2fa-status">Click mic to begin speaking</div>
+            </div>
+            <div class="modal-footer justify-center">
+                <button type="button" class="btn-cancel" id="cancel-voice-2fa-btn">Cancel Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Password Modal (hidden by default) -->
+    <div id="reset-password-modal" class="modal-overlay hidden">
+        <div class="modal-content glass animate-scale-in" style="max-width: 440px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-key"></i> Reset Password</h3>
+                <button type="button" class="close-modal-btn" id="close-reset-modal">&times;</button>
+            </div>
+            <form id="reset-password-form">
+                <div class="modal-body" style="gap: 1rem;">
+                    <!-- Username field (will be disabled/read-only if opened from logged in settings) -->
+                    <div class="input-group" id="reset-username-group">
+                        <label for="reset-username"><i class="fa-solid fa-user"></i> Username</label>
+                        <input type="text" id="reset-username" placeholder="Enter username (e.g. alice)" required>
+                    </div>
+
+                    <button type="button" class="auth-submit-btn" id="reset-get-question-btn" style="margin-top: 0;">
+                        Fetch Security Question
+                    </button>
+
+                    <!-- Q&A Section (hidden until user clicks Fetch Question and it succeeds) -->
+                    <div id="reset-qa-group" class="hidden"
+                        style="display: flex; flex-direction: column; gap: 1rem; width: 100%;">
+                        <div class="input-group" style="margin-top: 0.5rem; margin-bottom: 0;">
+                            <label><i class="fa-solid fa-circle-question"></i> Security Question</label>
+                            <p id="reset-question-text"
+                                style="font-size: 0.95rem; color: var(--primary-blue); font-weight: 600; padding: 0.5rem 0; line-height: 1.4;">
+                            </p>
+                        </div>
+                        <div class="input-group">
+                            <label for="reset-answer"><i class="fa-solid fa-pen"></i> Your Answer</label>
+                            <input type="text" id="reset-answer" placeholder="Enter your answer" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="reset-new-password"><i class="fa-solid fa-lock"></i> New Password</label>
+                            <input type="password" id="reset-new-password" placeholder="Enter new password" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="padding-top: 0.8rem;">
+                    <button type="button" class="btn-cancel" id="cancel-reset-btn">Cancel</button>
+                    <button type="submit" class="btn-download hidden" id="submit-reset-btn">
+                        <i class="fa-solid fa-check"></i> Reset Password
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Reset Voice Phrase Modal (hidden by default) -->
+    <div id="reset-voice-modal" class="modal-overlay hidden">
+        <div class="modal-content glass animate-scale-in" style="max-width: 440px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-microphone"></i> Reset Voice Phrase</h3>
+                <button type="button" class="close-modal-btn" id="close-voice-modal">&times;</button>
+            </div>
+            <form id="reset-voice-form">
+                <div class="modal-body" style="gap: 1rem;">
+                    <!-- Username field (hidden/read-only since logged in) -->
+                    <div class="input-group hidden" id="reset-voice-username-group">
+                        <label for="reset-voice-username"><i class="fa-solid fa-user"></i> Username</label>
+                        <input type="text" id="reset-voice-username" required>
+                    </div>
+
+                    <!-- Q&A and Voice phrase section -->
+                    <div id="reset-voice-qa-group"
+                        style="display: flex; flex-direction: column; gap: 1rem; width: 100%;">
+                        <div class="input-group" style="margin-bottom: 0;">
+                            <label><i class="fa-solid fa-circle-question"></i> Security Question</label>
+                            <p id="reset-voice-question-text"
+                                style="font-size: 0.95rem; color: var(--primary-blue); font-weight: 600; padding: 0.5rem 0; line-height: 1.4;">
+                            </p>
+                        </div>
+                        <div class="input-group">
+                            <label for="reset-voice-answer"><i class="fa-solid fa-pen"></i> Your Answer</label>
+                            <input type="text" id="reset-voice-answer" placeholder="Enter your answer" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="reset-voice-passphrase"><i class="fa-solid fa-microphone-lines"></i> New Voice
+                                Passphrase</label>
+                            <div class="passphrase-input-container" style="display: flex; gap: 0.5rem;">
+                                <input type="text" id="reset-voice-passphrase"
+                                    placeholder="Type or tap mic to speak passphrase" required style="flex: 1;">
+                                <button type="button" class="dictate-btn" id="dictate-reset-voice-btn"
+                                    title="Speak Passphrase">
+                                    <i class="fa-solid fa-microphone" id="dictate-reset-voice-icon"></i>
+                                </button>
+                            </div>
+                            <span class="input-subhint"
+                                style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 0.35rem; display: block; line-height: 1.3;">Speak
+                                or type your new voice passphrase. If speaking, we will also update your biometric voice
+                                print.</span>
+                            <div id="reset-voice-enrollment-badge" class="voice-enrollment-badge"
+                                style="margin-top: 0.4rem;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="padding-top: 0.8rem;">
+                    <button type="button" class="btn-cancel" id="cancel-voice-reset-btn">Cancel</button>
+                    <button type="submit" class="btn-download">
+                        <i class="fa-solid fa-check"></i> Save Voice Phrase
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Reset Face Scan Modal (hidden by default) -->
+    <div id="reset-face-modal" class="modal-overlay hidden">
+        <div class="modal-content glass animate-scale-in" style="max-width: 440px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-camera"></i> Enroll/Reset Face Scan</h3>
+                <button type="button" class="close-modal-btn" id="close-face-modal">&times;</button>
+            </div>
+            <form id="reset-face-form">
+                <div class="modal-body" style="gap: 1rem;">
+                    <!-- Username field (hidden/read-only since logged in) -->
+                    <div class="input-group hidden" id="reset-face-username-group">
+                        <label for="reset-face-username"><i class="fa-solid fa-user"></i> Username</label>
+                        <input type="text" id="reset-face-username" required>
+                    </div>
+
+                    <!-- Q&A and Face scan section -->
+                    <div id="reset-face-qa-group"
+                        style="display: flex; flex-direction: column; gap: 1rem; width: 100%;">
+                        <div class="input-group" style="margin-bottom: 0;">
+                            <label><i class="fa-solid fa-circle-question"></i> Security Question</label>
+                            <p id="reset-face-question-text"
+                                style="font-size: 0.95rem; color: var(--primary-blue); font-weight: 600; padding: 0.5rem 0; line-height: 1.4;">
+                            </p>
+                        </div>
+                        <div class="input-group">
+                            <label for="reset-face-answer"><i class="fa-solid fa-pen"></i> Your Answer</label>
+                            <input type="text" id="reset-face-answer" placeholder="Enter your answer" required>
+                        </div>
+                        <div class="input-group">
+                            <label><i class="fa-solid fa-camera"></i> Face Scan</label>
+                            <div class="face-register-container">
+                                <div class="face-camera-wrapper">
+                                    <div class="face-camera-container" id="reset-face-camera-container"
+                                        style="display: none;">
+                                        <video id="reset-face-video" autoplay playsinline
+                                            class="webcam-preview"></video>
+                                        <canvas id="reset-face-canvas" width="320" height="240"
+                                            style="display: none;"></canvas>
+                                        <div class="face-scanner-line"></div>
+                                    </div>
+                                </div>
+                                <div class="face-register-controls"
+                                    style="margin-top: 0.5rem; display: flex; gap: 0.5rem; justify-content: center;">
+                                    <button type="button" class="action-btn" id="reset-face-camera-toggle-btn">
+                                        <i class="fa-solid fa-video"></i> Start Camera
+                                    </button>
+                                    <button type="button" class="action-btn hidden" id="reset-face-capture-btn">
+                                        <i class="fa-solid fa-circle-dot"></i> Capture Face
+                                    </button>
+                                </div>
+                                <div id="reset-face-status" class="face-enrollment-badge">No face scanned yet</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="padding-top: 0.8rem;">
+                    <button type="button" class="btn-cancel" id="cancel-face-reset-btn">Cancel</button>
+                    <button type="submit" class="btn-download">
+                        <i class="fa-solid fa-check"></i> Save Face Scan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Hidden form for native browser PDF download -->
+    <form id="pdf-download-form" action="/api/download-pdf" method="POST" style="display:none;">
+        <input type="hidden" name="data" id="pdf-form-data">
+        <input type="hidden" name="filename" id="pdf-form-filename">
+    </form>
+
+    <!-- PDF & Chart Generation Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Floating Voice Assistant Shortcut Button -->
+    <button id="floating-mic-btn" class="floating-mic-btn hidden" title="Quick Voice Command">
+        <i class="fa-solid fa-microphone"></i>
+    </button>
+
     <!-- Script loading -->
-    <script src="app.js"></script>
+    <script src="app.js?v=1.0.3"></script>
 </body>
+
 </html>

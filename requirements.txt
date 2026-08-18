@@ -6,3 +6,13 @@ python-dotenv
 sqlmodel
 pymysql
 cryptography
+python-multipart
+psycopg2-binary
+langchain-google-genai
+langgraph
+groq
+torch
+torchvision
+onnxruntime
+opencv-python
+

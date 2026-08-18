@@ -9,8 +9,13 @@ class UserTable(SQLModel, table=True):
     password: str
     name: str
     voice_passphrase: str
+    mpin: str = Field(default="0000")
     savings_balance: float = 0.0
     checking_balance: float = 0.0
+    security_question: Optional[str] = Field(default=None)
+    security_answer: Optional[str] = Field(default=None)
+    face_image: Optional[str] = Field(default=None)
+
 
 class TransactionTable(SQLModel, table=True):
     __tablename__ = "transaction"
@@ -21,6 +26,7 @@ class TransactionTable(SQLModel, table=True):
     amount: float
     description: str
     category: str
+    channel: str = Field(default="Web")
 
 class FixedDepositTable(SQLModel, table=True):
     __tablename__ = "fixed_deposit"
