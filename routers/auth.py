@@ -28,7 +28,14 @@ router = APIRouter()
 async def login_endpoint(request: LoginRequest, session: Session = Depends(get_db_session)):
     username = request.username.lower().strip()
     user = session.exec(select(UserTable).where(UserTable.username == username)).first()
-    if user and user.password == request.password:
+    
+    from utils import verify_credential
+    def save_pwd_hash(hashed):
+        user.password = hashed
+        session.add(user)
+        session.commit()
+        
+    if user and verify_credential(request.password, user.password, on_success_callback=save_pwd_hash):
         chat_histories[username] = []
         return {
             "success": True,
@@ -57,17 +64,18 @@ async def register_endpoint(request: RegisterRequest, session: Session = Depends
     if user_exists:
         raise HTTPException(status_code=400, detail="Username already exists.")
         
+    from utils import hash_credential
     try:
         new_user = UserTable(
             username=username,
-            password=request.password,
+            password=hash_credential(request.password),
             name=request.name,
             voice_passphrase=request.voice_passphrase,
-            mpin=request.mpin,
+            mpin=hash_credential(request.mpin),
             savings_balance=request.initial_savings,
             checking_balance=request.initial_checking,
             security_question=request.security_question.strip(),
-            security_answer=request.security_answer.strip(),
+            security_answer=hash_credential(request.security_answer.strip()),
             face_image=request.face_image_base64
         )
 
@@ -206,10 +214,9 @@ async def reset_password_endpoint(request: ResetPasswordRequest, session: Sessio
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
         
-    entered_ans = request.security_answer.lower().strip()
+    from utils import verify_credential, hash_credential
     db_ans = user.security_answer
     if not db_ans:
-        # Fallback answer mapping for legacy seeded users
         fallbacks = {
             "alice": "spot",
             "bob": "new york",
@@ -219,10 +226,15 @@ async def reset_password_endpoint(request: ResetPasswordRequest, session: Sessio
         }
         db_ans = fallbacks.get(username)
         
-    if not db_ans or entered_ans != db_ans.lower().strip():
+    def save_ans_hash(hashed):
+        user.security_answer = hashed
+        session.add(user)
+        session.commit()
+        
+    if not db_ans or not verify_credential(request.security_answer, db_ans, on_success_callback=save_ans_hash):
         raise HTTPException(status_code=400, detail="Incorrect security answer.")
         
-    user.password = request.new_password
+    user.password = hash_credential(request.new_password)
     session.add(user)
     session.commit()
     
@@ -235,10 +247,9 @@ async def reset_voice_endpoint(request: ResetVoiceRequest, session: Session = De
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
         
-    entered_ans = request.security_answer.lower().strip()
+    from utils import verify_credential
     db_ans = user.security_answer
     if not db_ans:
-        # Fallback answer mapping for legacy seeded users
         fallbacks = {
             "alice": "spot",
             "bob": "new york",
@@ -248,7 +259,12 @@ async def reset_voice_endpoint(request: ResetVoiceRequest, session: Session = De
         }
         db_ans = fallbacks.get(username)
         
-    if not db_ans or entered_ans != db_ans.lower().strip():
+    def save_ans_hash(hashed):
+        user.security_answer = hashed
+        session.add(user)
+        session.commit()
+        
+    if not db_ans or not verify_credential(request.security_answer, db_ans, on_success_callback=save_ans_hash):
         raise HTTPException(status_code=400, detail="Incorrect security answer.")
         
     user.voice_passphrase = request.new_voice_phrase.strip()
@@ -382,10 +398,9 @@ async def reset_face_endpoint(request: ResetFaceRequest, session: Session = Depe
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
         
-    entered_ans = request.security_answer.lower().strip()
+    from utils import verify_credential
     db_ans = user.security_answer
     if not db_ans:
-        # Fallback answer mapping for legacy seeded users
         fallbacks = {
             "alice": "spot",
             "bob": "new york",
@@ -395,7 +410,12 @@ async def reset_face_endpoint(request: ResetFaceRequest, session: Session = Depe
         }
         db_ans = fallbacks.get(username)
         
-    if not db_ans or entered_ans != db_ans.lower().strip():
+    def save_ans_hash(hashed):
+        user.security_answer = hashed
+        session.add(user)
+        session.commit()
+        
+    if not db_ans or not verify_credential(request.security_answer, db_ans, on_success_callback=save_ans_hash):
         raise HTTPException(status_code=400, detail="Incorrect security answer.")
         
     user.face_image = request.face_image_base64

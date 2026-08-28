@@ -27,7 +27,13 @@ async def direct_transfer_endpoint(request: DirectPaymentRequest, session: Sessi
     if not recipient:
         raise HTTPException(status_code=404, detail="Recipient not found.")
         
-    if sender.mpin != request.mpin:
+    from utils import verify_credential
+    def save_mpin_hash(hashed):
+        sender.mpin = hashed
+        session.add(sender)
+        session.commit()
+        
+    if not verify_credential(request.mpin, sender.mpin, on_success_callback=save_mpin_hash):
         raise HTTPException(status_code=400, detail="Incorrect MPIN.")
         
     source = request.source_account.lower().strip()

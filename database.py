@@ -13,6 +13,7 @@ engine = create_engine(database_url)
 
 # Helper to run migrations & seed data
 def init_db():
+    from utils import hash_credential
     SQLModel.metadata.create_all(engine)
     
     # Check if 'mpin' column exists in 'user' table, and add it if missing (migration)
@@ -61,58 +62,58 @@ def init_db():
             # Seed 5 Dummy Users
             alice = UserTable(
                 username="alice",
-                password="password123",
+                password=hash_credential("password123"),
                 name="Alice Smith",
                 voice_passphrase="my voice is my secure password",
-                mpin="1111",
+                mpin=hash_credential("1111"),
                 savings_balance=5420.50,
                 checking_balance=1250.75,
                 security_question="What is your favorite pet's name?",
-                security_answer="Spot"
+                security_answer=hash_credential("Spot")
             )
             bob = UserTable(
                 username="bob",
-                password="password123",
+                password=hash_credential("password123"),
                 name="Bob Jones",
                 voice_passphrase="access code red",
-                mpin="2222",
+                mpin=hash_credential("2222"),
                 savings_balance=3200.00,
                 checking_balance=850.00,
                 security_question="In which city were you born?",
-                security_answer="New York"
+                security_answer=hash_credential("New York")
             )
             charlie = UserTable(
                 username="charlie",
-                password="password123",
+                password=hash_credential("password123"),
                 name="Charlie Brown",
                 voice_passphrase="let me into my account",
-                mpin="3333",
+                mpin=hash_credential("3333"),
                 savings_balance=1500.00,
                 checking_balance=400.00,
                 security_question="What is your favorite book?",
-                security_answer="Harry Potter"
+                security_answer=hash_credential("Harry Potter")
             )
             david = UserTable(
                 username="david",
-                password="password123",
+                password=hash_credential("password123"),
                 name="David Miller",
                 voice_passphrase="shield walls up",
-                mpin="4444",
+                mpin=hash_credential("4444"),
                 savings_balance=8900.00,
                 checking_balance=3100.00,
                 security_question="What was the name of your first school?",
-                security_answer="Lincoln"
+                security_answer=hash_credential("Lincoln")
             )
             emma = UserTable(
                 username="emma",
-                password="password123",
+                password=hash_credential("password123"),
                 name="Emma Watson",
                 voice_passphrase="open the nidhivani vault",
-                mpin="5555",
+                mpin=hash_credential("5555"),
                 savings_balance=12400.00,
                 checking_balance=4500.00,
                 security_question="What is your mother's maiden name?",
-                security_answer="Smith"
+                security_answer=hash_credential("Smith")
             )
             
             session.add_all([alice, bob, charlie, david, emma])
@@ -152,7 +153,7 @@ def init_db():
             for username, default_mpin in updates.items():
                 user = session.exec(select(UserTable).where(UserTable.username == username)).first()
                 if user and (user.mpin is None or user.mpin == "0000"):
-                    user.mpin = default_mpin
+                    user.mpin = hash_credential(default_mpin)
                     session.add(user)
                     has_updates = True
             if has_updates:

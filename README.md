@@ -27,6 +27,16 @@ For a deeper dive into the system design, check out the [System Architecture Gui
 
 ---
 
+## Security Features
+
+NidhiVani AI uses industry-standard security practices to protect client data:
+* **Credential Hashing**: User passwords, 4-digit transaction MPINs, and recovery security answers are securely hashed using the **Argon2id** algorithm (via the `argon2-cffi` library).
+* **Auto-Migration Flow**: Any legacy database records with plaintext credentials are automatically upgraded to secure Argon2id hashes upon their first successful verification check, ensuring a seamless and secure migration.
+* **Biometric Authentication**: Multi-layered biometric matching (face recognition and voice passphrase checks) controls account access.
+* **Input and Transcript Masking**: Frontend input fields and chatbot transcription bubbles dynamically mask sensitive 4-digit MPIN entries to prevent visual exposure.
+
+---
+
 ## Project Directory Layout
 
 ```

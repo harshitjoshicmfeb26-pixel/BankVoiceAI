@@ -134,3 +134,63 @@ def log_token_usage(agent_name: str, usage_metadata: dict):
     except Exception as e:
         print(f"Failed to write token log: {e}", flush=True)
 
+
+# ==========================================
+# CREDENTIAL HASHING & AUTomigration (Argon2id)
+# ==========================================
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
+
+# Initialize global PasswordHasher for Argon2id
+ph = PasswordHasher()
+
+def hash_credential(plain_val: str) -> str:
+    """
+    Hashes a plain text credential (password, MPIN, security answer) using Argon2id.
+    """
+    if not plain_val:
+        return ""
+    return ph.hash(plain_val.strip())
+
+def verify_credential(entered_val: str, stored_val: str, on_success_callback=None) -> bool:
+    """
+    Verifies an entered plain text credential against a stored value.
+    Supports auto-migration from legacy plaintext values.
+    
+    If verification succeeds and the stored value is legacy plaintext, 
+    the callback 'on_success_callback(hashed_value)' is triggered to persist the hash.
+    """
+    if not entered_val or not stored_val:
+        return False
+        
+    entered_clean = entered_val.strip()
+    stored_clean = stored_val.strip()
+    
+    # 1. Check if the stored value is an Argon2id hash
+    if stored_clean.startswith("$argon2id$"):
+        try:
+            ph.verify(stored_clean, entered_clean)
+            return True
+        except VerifyMismatchError:
+            return False
+        except Exception as e:
+            print(f"Argon2 verification error: {e}")
+            return False
+            
+    # 2. Legacy Plaintext Fallback (Case-insensitive check for answers, case-sensitive otherwise)
+    is_match = (entered_clean == stored_clean) or (entered_clean.lower() == stored_clean.lower())
+    
+    if is_match:
+        # Auto-migrate: hash the plaintext and execute the callback to update the database
+        if on_success_callback:
+            try:
+                hashed = ph.hash(entered_clean)
+                on_success_callback(hashed)
+                print("Credential automatically migrated to secure Argon2id hash.")
+            except Exception as e:
+                print(f"Auto-migration hash save warning: {e}")
+        return True
+        
+    return False
+
+
