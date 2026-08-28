@@ -71,7 +71,6 @@ const mpinInputWrapper = document.getElementById('mpin-input-wrapper');
 const typeMpinInput = document.getElementById('type-mpin-input');
 const mpinSubmitBtn = document.getElementById('mpin-submit-btn');
 const mpinCancelBtn = document.getElementById('mpin-cancel-btn');
-
 // PDF Statement Modal elements
 const statementModal = document.getElementById('statement-modal');
 const statementModalBtn = document.getElementById('statement-modal-btn');
@@ -1284,7 +1283,8 @@ async function handleUserSpeech(text) {
     userTag.textContent = 'You:';
 
     const userText = document.createElement('p');
-    userText.textContent = text;
+    // Mask MPIN in chat bubble to prevent shoulder-surfing
+    userText.textContent = /^\d{4}$/.test(text.trim()) ? '••••' : text;
 
     userBubble.appendChild(userTag);
     userBubble.appendChild(userText);
