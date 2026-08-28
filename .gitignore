@@ -7,3 +7,6 @@ venv/
 token_usage.log
 *.log
 voices/
+*.wav
+*.mp3
+*.webm
