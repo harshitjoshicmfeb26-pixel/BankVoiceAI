@@ -51,6 +51,7 @@ class DirectPaymentRequest(BaseModel):
 class ResetVoiceRequest(BaseModel):
     username: str
     security_answer: str
+    mpin: str
     new_voice_phrase: str
     voice_audio_base64: Optional[str] = None
     voice_audio_mime: Optional[str] = None
@@ -58,5 +59,6 @@ class ResetVoiceRequest(BaseModel):
 class ResetFaceRequest(BaseModel):
     username: str
     security_answer: str
+    mpin: str
     face_image_base64: str
 

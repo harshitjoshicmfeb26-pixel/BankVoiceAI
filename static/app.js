@@ -2096,8 +2096,10 @@ if (resetVoiceForm) {
         const username = resetVoiceUsernameInput ? resetVoiceUsernameInput.value.trim() : '';
         const answer = resetVoiceAnswerInput ? resetVoiceAnswerInput.value.trim() : '';
         const newPhrase = resetVoicePassphraseInput ? resetVoicePassphraseInput.value.trim() : '';
+        const mpinEl = document.getElementById('reset-voice-mpin');
+        const mpin = mpinEl ? mpinEl.value : '';
 
-        if (!username || !answer || !newPhrase) {
+        if (!username || !answer || !newPhrase || !mpin) {
             alert("All fields are required.");
             return;
         }
@@ -2111,6 +2113,7 @@ if (resetVoiceForm) {
                 body: JSON.stringify({
                     username: username,
                     security_answer: answer,
+                    mpin: mpin,
                     new_voice_phrase: newPhrase,
                     voice_audio_base64: resetVoiceAudioBase64,
                     voice_audio_mime: resetVoiceAudioMime
@@ -2126,6 +2129,9 @@ if (resetVoiceForm) {
             const data = await response.json();
             if (data.success) {
                 alert("Voice phrase reset successfully!");
+                if (resetVoiceAnswerInput) resetVoiceAnswerInput.value = '';
+                if (resetVoicePassphraseInput) resetVoicePassphraseInput.value = '';
+                if (mpinEl) mpinEl.value = '';
                 hideResetVoiceModal();
             }
         } catch (err) {
@@ -2913,12 +2919,12 @@ faceLoginCameraToggleBtn.addEventListener('click', async () => {
             faceLoginCameraContainer.style.display = 'block';
             faceLoginCameraToggleBtn.innerHTML = '<i class="fa-solid fa-camera-slash"></i>';
             faceLoginCameraToggleBtn.parentElement.classList.add('scanning');
-            
+
             // Start automatic 2-second countdown for scan
             let secondsLeft = 2;
             faceLoginStatus.textContent = `Camera active. Aligning face... scanning in ${secondsLeft} seconds...`;
             faceLoginStatus.className = 'face-login-status processing';
-            
+
             faceLoginCountdownInterval = setInterval(() => {
                 secondsLeft--;
                 if (secondsLeft > 0) {
@@ -2927,12 +2933,12 @@ faceLoginCameraToggleBtn.addEventListener('click', async () => {
                     clearInterval(faceLoginCountdownInterval);
                 }
             }, 1000);
-            
+
             faceLoginAutoTimeout = setTimeout(async () => {
                 clearInterval(faceLoginCountdownInterval);
                 await triggerAutoFaceLogin();
             }, 2000);
-            
+
         } catch (err) {
             console.error("Webcam access error:", err);
             faceLoginStatus.textContent = 'Failed to access camera.';
@@ -2967,7 +2973,7 @@ async function triggerAutoFaceLogin() {
 
     try {
         const liveFaceBase64 = getBase64Image(faceLoginVideo, faceLoginCanvas);
-        
+
         const response = await fetch('/api/face-login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2992,7 +2998,7 @@ async function triggerAutoFaceLogin() {
             if (data.token) {
                 sessionStorage.setItem('accessToken', data.token);
             }
-            
+
             // Login user to the dashboard
             loginUser(data.username, data.name);
         } else {
@@ -3148,8 +3154,10 @@ if (resetFaceForm) {
 
         const username = resetFaceUsernameInput ? resetFaceUsernameInput.value.trim() : '';
         const answer = resetFaceAnswerInput ? resetFaceAnswerInput.value.trim() : '';
+        const mpinEl = document.getElementById('reset-face-mpin');
+        const mpin = mpinEl ? mpinEl.value : '';
 
-        if (!username || !answer) {
+        if (!username || !answer || !mpin) {
             alert("All fields are required.");
             return;
         }
@@ -3166,6 +3174,7 @@ if (resetFaceForm) {
                 body: JSON.stringify({
                     username: username,
                     security_answer: answer,
+                    mpin: mpin,
                     face_image_base64: capturedResetFaceBase64
                 })
             });
@@ -3179,6 +3188,8 @@ if (resetFaceForm) {
             const data = await response.json();
             if (data.success) {
                 alert("Face scan updated successfully!");
+                if (resetFaceAnswerInput) resetFaceAnswerInput.value = '';
+                if (mpinEl) mpinEl.value = '';
                 hideResetFaceModal();
             }
         } catch (err) {

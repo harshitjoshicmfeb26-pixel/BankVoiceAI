@@ -10,7 +10,7 @@ from database import get_db_session
 from models import UserTable, TransactionTable
 from assistant import chat_histories, client
 from google.genai import types
-from utils import check_passphrase_similarity
+from utils import check_passphrase_similarity, get_current_user
 from schemas import (
     LoginRequest,
     RegisterRequest,
@@ -238,22 +238,38 @@ async def reset_password_endpoint(request: ResetPasswordRequest, session: Sessio
     return {"success": True, "message": "Password reset successfully."}
 
 @router.post("/api/settings/reset-voice")
-async def reset_voice_endpoint(request: ResetVoiceRequest, session: Session = Depends(get_db_session)):
+async def reset_voice_endpoint(
+    request: ResetVoiceRequest, 
+    session: Session = Depends(get_db_session),
+    current_user: str = Depends(get_current_user)
+):
     username = request.username.lower().strip()
+    if username != current_user:
+        raise HTTPException(status_code=403, detail="Forbidden: You cannot modify other users' settings.")
+        
     user = session.exec(select(UserTable).where(UserTable.username == username)).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
         
     from utils import verify_credential
     db_ans = user.security_answer
+    db_mpin = user.mpin
         
     def save_ans_hash(hashed):
         user.security_answer = hashed
         session.add(user)
         session.commit()
         
+    def save_mpin_hash(hashed):
+        user.mpin = hashed
+        session.add(user)
+        session.commit()
+        
     if not db_ans or not verify_credential(request.security_answer, db_ans, on_success_callback=save_ans_hash):
         raise HTTPException(status_code=400, detail="Incorrect security answer.")
+        
+    if not db_mpin or not verify_credential(request.mpin, db_mpin, on_success_callback=save_mpin_hash):
+        raise HTTPException(status_code=400, detail="Incorrect MPIN.")
         
     user.voice_passphrase = request.new_voice_phrase.strip()
     session.add(user)
@@ -383,22 +399,38 @@ async def face_login_endpoint(request: FaceLoginRequest, session: Session = Depe
 
 
 @router.post("/api/settings/reset-face")
-async def reset_face_endpoint(request: ResetFaceRequest, session: Session = Depends(get_db_session)):
+async def reset_face_endpoint(
+    request: ResetFaceRequest, 
+    session: Session = Depends(get_db_session),
+    current_user: str = Depends(get_current_user)
+):
     username = request.username.lower().strip()
+    if username != current_user:
+        raise HTTPException(status_code=403, detail="Forbidden: You cannot modify other users' settings.")
+        
     user = session.exec(select(UserTable).where(UserTable.username == username)).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
         
     from utils import verify_credential
     db_ans = user.security_answer
+    db_mpin = user.mpin
         
     def save_ans_hash(hashed):
         user.security_answer = hashed
         session.add(user)
         session.commit()
         
+    def save_mpin_hash(hashed):
+        user.mpin = hashed
+        session.add(user)
+        session.commit()
+        
     if not db_ans or not verify_credential(request.security_answer, db_ans, on_success_callback=save_ans_hash):
         raise HTTPException(status_code=400, detail="Incorrect security answer.")
+        
+    if not db_mpin or not verify_credential(request.mpin, db_mpin, on_success_callback=save_mpin_hash):
+        raise HTTPException(status_code=400, detail="Incorrect MPIN.")
         
     user.face_image = request.face_image_base64
     session.add(user)
