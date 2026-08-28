@@ -1,10 +1,10 @@
-# NidhiVani AI (BankVoiceAI) 🎙️🏦
+# NidhiVani AI (BankVoiceAI)
 
 NidhiVani AI is a cutting-edge, voice-first AI-driven digital banking assistant. It combines a WhatsApp-style interactive conversational interface with advanced biometric authentication, multi-agent orchestration, and secure transactional flows.
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
 * **Multi-Agent Orchestration**: Powered by LangGraph, routing user queries to specialized sub-agents (Accounts, Payments, Fixed Deposits, Support).
 * **Voice Biometrics**: Speech-based user verification using voice passphrases and audio processing.
@@ -15,7 +15,7 @@ NidhiVani AI is a cutting-edge, voice-first AI-driven digital banking assistant.
 
 ---
 
-## 🛠️ System Architecture
+## System Architecture
 
 * **Frontend**: Responsive Single-Page Application (SPA) styled with vanilla CSS (glassmorphism design system) and powered by interactive Vanilla Javascript.
 * **Backend**: FastAPI (Python) serving REST APIs and managing WebSocket voice streams.
@@ -27,7 +27,7 @@ For a deeper dive into the system design, check out the [System Architecture Gui
 
 ---
 
-## 📦 Project Directory Layout
+## Project Directory Layout
 
 ```
 ├── static/                 # Frontend assets (HTML, CSS, JS)
@@ -51,7 +51,7 @@ For specific module walkthroughs, check out the [Function Implementation Guide](
 
 ---
 
-## ⚙️ Getting Started
+## Getting Started
 
 ### 1. Prerequisites
 Ensure you have **Python 3.11.7** installed.
