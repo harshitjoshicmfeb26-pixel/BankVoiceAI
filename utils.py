@@ -1,7 +1,16 @@
 import re
-from fastapi import HTTPException
+import jwt
+import datetime
+import os
+import logging
+from typing import Optional
+from fastapi import HTTPException, Header, Depends
 from sqlmodel import Session, select
 from models import UserTable, TransactionTable, FixedDepositTable
+from database import get_db_session
+
+# Setup logger for security events
+logger = logging.getLogger("bankvoiceai.security")
 
 def transliterate_devanagari(text: str) -> str:
     char_map = {
@@ -192,5 +201,58 @@ def verify_credential(entered_val: str, stored_val: str, on_success_callback=Non
         return True
         
     return False
+
+
+# JWT Configuration
+JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-key-for-bank-voice-ai")
+JWT_ALGORITHM = "HS256"
+
+def create_access_token(username: str, expires_delta_mins: int = 60) -> str:
+    """
+    Generates a secure, cryptographically signed JWT access token.
+    """
+    payload = {
+        "sub": username.lower().strip(),
+        "iat": datetime.datetime.utcnow(),
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=expires_delta_mins)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def get_current_user(authorization: Optional[str] = Header(None), session: Session = Depends(get_db_session)) -> str:
+    """
+    FastAPI dependency to extract and verify the JWT access token from the Authorization header.
+    Returns the authenticated username.
+    """
+    if not authorization:
+        logger.warning("Authentication failed: Missing Authorization header")
+        raise HTTPException(status_code=401, detail="Missing authorization token.")
+        
+    try:
+        # Expecting format "Bearer <token>"
+        parts = authorization.split()
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            logger.warning("Authentication failed: Invalid Authorization header format")
+            raise HTTPException(status_code=401, detail="Invalid authorization header format. Use 'Bearer <token>'.")
+            
+        token = parts[1]
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        username = payload.get("sub")
+        if not username:
+            logger.warning("Authentication failed: Token payload is missing subject ('sub') claim")
+            raise HTTPException(status_code=401, detail="Token payload is missing subject.")
+            
+        # Verify user still exists in the database
+        user = session.exec(select(UserTable).where(UserTable.username == username)).first()
+        if not user:
+            logger.warning(f"Authentication failed: User '{username}' encoded in token does not exist in DB")
+            raise HTTPException(status_code=401, detail="User in token does not exist.")
+            
+        return username
+    except jwt.ExpiredSignatureError:
+        logger.warning("Authentication failed: Token signature has expired")
+        raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"Authentication failed: Invalid signature/token. Error: {e}")
+        raise HTTPException(status_code=401, detail="Invalid token. Please log in again.")
 
 

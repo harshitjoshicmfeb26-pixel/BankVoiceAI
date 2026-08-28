@@ -37,8 +37,11 @@ async def login_endpoint(request: LoginRequest, session: Session = Depends(get_d
         
     if user and verify_credential(request.password, user.password, on_success_callback=save_pwd_hash):
         chat_histories[username] = []
+        from utils import create_access_token
+        token = create_access_token(username)
         return {
             "success": True,
+            "token": token,
             "username": username,
             "name": user.name
         }
@@ -176,8 +179,11 @@ async def voice_login_endpoint(request: VoiceLoginRequest, session: Session = De
     print(f"Bypassing voice biometric verification for '{username}' (passphrase matched).", flush=True)
         
     chat_histories[username] = []
+    from utils import create_access_token
+    token = create_access_token(username)
     return {
         "success": True,
+        "token": token,
         "username": username,
         "name": matched_user.name,
         "message": "Voice verified successfully!"
@@ -358,8 +364,11 @@ async def face_login_endpoint(request: FaceLoginRequest, session: Session = Depe
                 
         if best_user:
             chat_histories[best_user.username] = []
+            from utils import create_access_token
+            token = create_access_token(best_user.username)
             return {
                 "success": True,
+                "token": token,
                 "username": best_user.username,
                 "name": best_user.name,
                 "message": "Face verified successfully!"

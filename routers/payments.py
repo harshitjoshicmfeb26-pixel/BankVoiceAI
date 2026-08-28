@@ -8,9 +8,17 @@ from schemas import DirectPaymentRequest
 
 router = APIRouter()
 
+from utils import get_current_user
+
 @router.post("/api/payments/transfer")
-async def direct_transfer_endpoint(request: DirectPaymentRequest, session: Session = Depends(get_db_session)):
+async def direct_transfer_endpoint(
+    request: DirectPaymentRequest, 
+    session: Session = Depends(get_db_session),
+    current_user: str = Depends(get_current_user)
+):
     sender_username = request.username.lower().strip()
+    if sender_username != current_user:
+        raise HTTPException(status_code=403, detail="Forbidden: You can only transfer money from your own authenticated account.")
     recipient_username = request.recipient_username.lower().strip()
     
     if sender_username == recipient_username:

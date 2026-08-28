@@ -92,6 +92,21 @@ let isResetVoiceRecording = false;
 let pending2FAUser = null;
 let currentUser = null; // Session details { username, name }
 
+async function fetchWithAuth(url, options = {}) {
+    const token = sessionStorage.getItem('accessToken');
+    options.headers = options.headers || {};
+    if (token) {
+        options.headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(url, options);
+    if (response.status === 401) {
+        alert("Your session has expired or is invalid. Logging out.");
+        logoutUser();
+        throw new Error("Unauthorized");
+    }
+    return response;
+}
+
 let selectedLanguage = localStorage.getItem('appLanguage') || 'en-IN';
 
 // Dictionary mapping selector query to translation key
@@ -814,6 +829,9 @@ loginForm.addEventListener('submit', async (e) => {
 
         const data = await response.json();
         if (data.success) {
+            if (data.token) {
+                sessionStorage.setItem('accessToken', data.token);
+            }
             loginUser(data.username, data.name);
         }
     } catch (err) {
@@ -916,6 +934,7 @@ function loginUser(username, name) {
 function logoutUser() {
     window.speechSynthesis.cancel();
     sessionStorage.removeItem('currentUser');
+    sessionStorage.removeItem('accessToken');
     currentUser = null;
     window.location.reload();
 }
@@ -969,6 +988,9 @@ async function handleVoiceLogin(text, base64Audio) {
             voiceLoginStatus.className = 'voice-login-status success';
             voiceLoginStatus.textContent = data.message || "Welcome back!";
             speakText(`Voice verification successful. Welcome back, ${data.name}!`);
+            if (data.token) {
+                sessionStorage.setItem('accessToken', data.token);
+            }
             setTimeout(() => {
                 loginUser(data.username, data.name);
             }, 1500);
@@ -1325,7 +1347,7 @@ async function handleUserSpeech(text) {
     scrollChatToBottom();
 
     try {
-        const response = await fetch('/api/chat', {
+        const response = await fetchWithAuth('/api/chat', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -1523,7 +1545,7 @@ function updateValueWithAnimation(element, newValue) {
 // Load initial state for specific user session
 async function fetchInitialState(username) {
     try {
-        const response = await fetch(`/api/state?username=${encodeURIComponent(username)}`);
+        const response = await fetchWithAuth(`/api/state?username=${encodeURIComponent(username)}`);
         if (response.ok) {
             const state = await response.json();
             updateDashboard(state);
@@ -1649,7 +1671,7 @@ window.addEventListener('DOMContentLoaded', () => {
         // Query ping to check API connection
         fetch('/api/state?username=alice')
             .then(res => {
-                if (res.ok) {
+                if (res.status === 200 || res.status === 401 || res.status === 403) {
                     apiStatusEl.className = "api-status connected";
                     apiStatusEl.querySelector('.status-text').textContent = "Online";
                 }
@@ -1801,6 +1823,9 @@ async function handleVoice2FA(text, base64Audio) {
             voice2FAStatus.className = 'voice-2fa-status success';
             voice2FAStatus.textContent = data.message || "Voice verified!";
             speakText(`Voice verification successful. Welcome back, ${data.name}!`);
+            if (data.token) {
+                sessionStorage.setItem('accessToken', data.token);
+            }
             setTimeout(() => {
                 hideVoice2FAModal();
                 loginUser(data.username, data.name);
@@ -2080,7 +2105,7 @@ if (resetVoiceForm) {
         // New voice print recording is optional, so we bypass this validation.
 
         try {
-            const response = await fetch('/api/settings/reset-voice', {
+            const response = await fetchWithAuth('/api/settings/reset-voice', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -2164,7 +2189,7 @@ async function populatePaymentRecipients(username) {
     recipientSelect.innerHTML = `<option value="" disabled selected>${defaultText}</option>`;
 
     try {
-        const response = await fetch(`/api/users?exclude=${encodeURIComponent(username)}`);
+        const response = await fetchWithAuth(`/api/users?exclude=${encodeURIComponent(username)}`);
         if (!response.ok) {
             console.error("Failed to load recipients list.");
             return;
@@ -2203,7 +2228,7 @@ if (dashboardPaymentForm) {
         }
 
         try {
-            const response = await fetch('/api/payments/transfer', {
+            const response = await fetchWithAuth('/api/payments/transfer', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -2362,7 +2387,7 @@ if (knowledgeQueryForm) {
         kResponseBody.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Support Specialist is processing...';
 
         try {
-            const response = await fetch('/api/chat', {
+            const response = await fetchWithAuth('/api/chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -2964,6 +2989,9 @@ async function triggerAutoFaceLogin() {
             faceLoginStatus.textContent = 'Authentication successful!';
             faceLoginStatus.className = 'face-login-status success';
             stopLoginCamera();
+            if (data.token) {
+                sessionStorage.setItem('accessToken', data.token);
+            }
             
             // Login user to the dashboard
             loginUser(data.username, data.name);
@@ -3132,7 +3160,7 @@ if (resetFaceForm) {
         }
 
         try {
-            const response = await fetch('/api/settings/reset-face', {
+            const response = await fetchWithAuth('/api/settings/reset-face', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

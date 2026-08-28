@@ -16,5 +16,7 @@ torchvision
 onnxruntime
 opencv-python
 argon2-cffi
+pyjwt
+
 
 

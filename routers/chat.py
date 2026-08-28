@@ -20,7 +20,8 @@ from agents_graph import agents_graph
 from utils import (
     transliterate_devanagari,
     normalize_spoken_digits,
-    get_user_current_state
+    get_user_current_state,
+    get_current_user
 )
 from translations import (
     get_translated_message,
@@ -46,8 +47,14 @@ def add_to_history(username: str, user_message: str, assistant_response: str):
     chat_histories[username] = prune_chat_history(history)
 
 @router.post("/api/chat")
-async def chat_endpoint(request: ChatRequest, session: Session = Depends(get_db_session)):
+async def chat_endpoint(
+    request: ChatRequest, 
+    session: Session = Depends(get_db_session),
+    current_user: str = Depends(get_current_user)
+):
     username = request.username.lower().strip()
+    if username != current_user:
+        raise HTTPException(status_code=403, detail="Forbidden: You cannot chat on behalf of another user.")
     db_user = session.exec(select(UserTable).where(UserTable.username == username)).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User session not found.")
