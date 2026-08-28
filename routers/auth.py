@@ -216,15 +216,6 @@ async def reset_password_endpoint(request: ResetPasswordRequest, session: Sessio
         
     from utils import verify_credential, hash_credential
     db_ans = user.security_answer
-    if not db_ans:
-        fallbacks = {
-            "alice": "spot",
-            "bob": "new york",
-            "charlie": "harry potter",
-            "david": "lincoln",
-            "emma": "smith"
-        }
-        db_ans = fallbacks.get(username)
         
     def save_ans_hash(hashed):
         user.security_answer = hashed
@@ -249,15 +240,6 @@ async def reset_voice_endpoint(request: ResetVoiceRequest, session: Session = De
         
     from utils import verify_credential
     db_ans = user.security_answer
-    if not db_ans:
-        fallbacks = {
-            "alice": "spot",
-            "bob": "new york",
-            "charlie": "harry potter",
-            "david": "lincoln",
-            "emma": "smith"
-        }
-        db_ans = fallbacks.get(username)
         
     def save_ans_hash(hashed):
         user.security_answer = hashed
@@ -400,15 +382,6 @@ async def reset_face_endpoint(request: ResetFaceRequest, session: Session = Depe
         
     from utils import verify_credential
     db_ans = user.security_answer
-    if not db_ans:
-        fallbacks = {
-            "alice": "spot",
-            "bob": "new york",
-            "charlie": "harry potter",
-            "david": "lincoln",
-            "emma": "smith"
-        }
-        db_ans = fallbacks.get(username)
         
     def save_ans_hash(hashed):
         user.security_answer = hashed
