@@ -35,24 +35,29 @@ def check_passphrase_similarity(registered: str, spoken: str) -> bool:
     reg_clean = re.sub(r"[^\w\s]", "", registered.lower()).strip()
     spk_clean = re.sub(r"[^\w\s]", "", spoken.lower()).strip()
     
-    # 1. Direct match or substring match
-    if reg_clean == spk_clean or reg_clean in spk_clean or spk_clean in reg_clean:
+    # Enforce minimum length on spoken passphrase to avoid single-word / fragment logins
+    if len(spk_clean) < 6:
+        return False
+        
+    # 1. Exact match or spoken sentence contains full registered passphrase
+    # (Notice: dropped `spk_clean in reg_clean` which allowed matching single word fragments like "my")
+    if reg_clean == spk_clean or reg_clean in spk_clean:
         return True
         
     # 2. Word overlap (Jaccard similarity on unique words)
     reg_words = set(reg_clean.split())
     spk_words = set(spk_clean.split())
     
-    if reg_words and spk_words:
+    if reg_words and spk_words and len(spk_words) >= 2:
         intersection = reg_words.intersection(spk_words)
         jaccard_ratio = len(intersection) / len(reg_words)
-        if jaccard_ratio >= 0.70:
+        if jaccard_ratio >= 0.75:
             return True
             
     # 3. Character sequence similarity (difflib SequenceMatcher ratio)
     import difflib
     char_ratio = difflib.SequenceMatcher(None, reg_clean, spk_clean).ratio()
-    if char_ratio >= 0.70:
+    if char_ratio >= 0.75:
         return True
         
     return False
@@ -204,7 +209,12 @@ def verify_credential(entered_val: str, stored_val: str, on_success_callback=Non
 
 
 # JWT Configuration
-JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-key-for-bank-voice-ai")
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET or JWT_SECRET == "super-secret-key-for-bank-voice-ai":
+    raise RuntimeError(
+        "CRITICAL SECURITY ERROR: 'JWT_SECRET' is not set or uses the insecure repository default! "
+        "Please configure a strong, random JWT_SECRET in your .env file."
+    )
 JWT_ALGORITHM = "HS256"
 
 def create_access_token(username: str, expires_delta_mins: int = 60) -> str:

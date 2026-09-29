@@ -64,13 +64,10 @@ def get_transaction_history(
     limit: int = 10,
     transaction_type: Optional[str] = None,
     channel: Optional[str] = None,
-    other_party: Optional[str] = None,
-    target_user: Optional[str] = None
+    other_party: Optional[str] = None
 ) -> str:
     """
-    Retrieves transaction history showing transaction date, amount, description, and type.
-    Supports querying a specific user's transactions if target_user is specified (e.g., 'alice', 'bob').
-    If target_user is not specified, it defaults to the currently authenticated user.
+    Retrieves transaction history showing transaction date, amount, description, and type for the currently authenticated user.
     Supports filtering by transaction type ('Credit' or 'Debit'), channel ('Voice' or 'Web'), or a specific recipient/sender's name or username.
     
     Args:
@@ -78,26 +75,18 @@ def get_transaction_history(
         transaction_type: Optional filter for transaction type. Must be either 'Credit' or 'Debit' (case-insensitive).
         channel: Optional filter for channel. Must be either 'Voice' or 'Web' (case-insensitive).
         other_party: Optional filter for a specific recipient/sender name or username involved in the transaction (e.g., 'David Miller' or 'Admin'). Case-insensitive.
-        target_user: Optional username of the user whose transactions are being retrieved (e.g., 'alice', 'bob', 'charlie'). If not provided, retrieves the logged-in user's transactions.
     """
-    query_user = target_user.strip().lower() if target_user else current_user_var.get()
+    query_user = current_user_var.get()
     if not query_user:
         return "Error: User is not authenticated."
         
     with Session(engine) as session:
-        # Verify target user exists, fuzzy matching full name if needed
+        # Verify authenticated user exists
         db_user = session.exec(select(UserTable).where(UserTable.username == query_user)).first()
         if not db_user:
-            all_users = session.exec(select(UserTable)).all()
-            for u in all_users:
-                if u.name.lower() == query_user or query_user in u.name.lower():
-                    db_user = u
-                    query_user = u.username
-                    break
-        if not db_user:
-            return f"Error: User '{query_user}' was not found in the database."
+            return "Error: Authenticated user was not found in the database."
 
-        # Base query
+        # Base query - strictly scoped to authenticated user
         query = select(TransactionTable).where(TransactionTable.username == query_user)
         
         # Apply filters in database query if simple
@@ -140,10 +129,10 @@ def get_transaction_history(
             if channel: filter_desc.append(f"channel '{channel}'")
             if other_party: filter_desc.append(f"involving '{other_party}'")
             filters_str = " and ".join(filter_desc)
-            user_label = f"for user '{db_user.name}'" if target_user else "in your history"
+            user_label = "in your history"
             return f"No transactions found matching {filters_str} {user_label}." if filters_str else f"No transactions found {user_label}."
         
-        user_label = f"for user '{db_user.name}'" if target_user else "in your history"
+        user_label = "in your history"
         table = f"Here are the last {len(txs)} transactions {user_label}:\n\n"
         table += "| Date | Description | Category | Type | Amount |\n"
         table += "| :--- | :--- | :--- | :--- | :--- |\n"

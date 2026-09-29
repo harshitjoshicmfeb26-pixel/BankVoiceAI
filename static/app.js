@@ -879,6 +879,9 @@ registerForm.addEventListener('submit', async (e) => {
 
         const data = await response.json();
         if (data.success) {
+            if (data.token) {
+                sessionStorage.setItem('accessToken', data.token);
+            }
             alert("Account registered successfully!");
             enrolledVoiceAudioBase64 = null;
             enrolledVoiceAudioMime = null;
@@ -970,6 +973,11 @@ async function handleVoiceLogin(text, base64Audio) {
     voiceLoginStatus.textContent = `Verifying passphrase...`;
 
     const voiceUsername = document.getElementById('voice-login-username').value.trim();
+    if (!voiceUsername) {
+        voiceLoginStatus.className = 'voice-login-status error';
+        voiceLoginStatus.textContent = "Please enter your username first.";
+        return;
+    }
 
     try {
         const response = await fetch('/api/voice-login', {
@@ -1154,7 +1162,7 @@ statementForm.addEventListener('submit', async (e) => {
         if (startDate) url += `&start_date=${startDate}`;
         if (endDate) url += `&end_date=${endDate}`;
 
-        const response = await fetch(url);
+        const response = await fetchWithAuth(url);
         if (!response.ok) {
             throw new Error(`Failed to fetch transactions`);
         }

@@ -21,7 +21,8 @@ from utils import (
     transliterate_devanagari,
     normalize_spoken_digits,
     get_user_current_state,
-    get_current_user
+    get_current_user,
+    verify_credential
 )
 from translations import (
     get_translated_message,
@@ -157,7 +158,12 @@ async def chat_endpoint(
                     entered_mpin = mpin_match.group(1)
                     
                     # Verify MPIN
-                    if entered_mpin == db_user.mpin:
+                    def save_mpin_hash(hashed):
+                        db_user.mpin = hashed
+                        session.add(db_user)
+                        session.commit()
+
+                    if verify_credential(entered_mpin, db_user.mpin, on_success_callback=save_mpin_hash):
                         # MPIN is correct! Complete the transfer.
                         tx_info = pending_transfers[username]
                         del pending_transfers[username]
@@ -442,38 +448,15 @@ async def chat_endpoint(
             elif any(w in msg_lower for w in ["web", "online", "वेब", "ऑनलाईन"]):
                 filter_channel = "Web"
                 
-            # Detect target user (whose transactions to query)
-            target_username = username  # default to current logged in user
-            target_user_obj = db_user
-            
+            # 3. Detect Other Party (filtering user's own transactions by counterparty)
             all_users = session.exec(select(UserTable)).all()
             for u in all_users:
-                # Check if username or full name is mentioned in the query
-                if u.username in msg_lower or u.name.lower() in msg_lower:
-                    # Look for specific target indicators
-                    target_pattern = rf"\b(of|for|belonging\s+to|list\s+of|list\s+for|history\s+of|history\s+for|account\s+of)\s+{re.escape(u.username)}\b"
-                    target_name_pattern = rf"\b(of|for|belonging\s+to|list\s+of|list\s+for|history\s+of|history\s+for|account\s+of)\s+{re.escape(u.name.lower())}\b"
-                    possessive_pattern = rf"\b{re.escape(u.username)}['’]s\b"
-                    possessive_name_pattern = rf"\b{re.escape(u.name.lower())}['’]s\b"
-                    
-                    if (re.search(target_pattern, msg_lower) or 
-                        re.search(target_name_pattern, msg_lower) or 
-                        re.search(possessive_pattern, msg_lower) or 
-                        re.search(possessive_name_pattern, msg_lower) or
-                        re.search(rf"\b{re.escape(u.username)}\b\s+(transactions|history|ledger)", msg_lower) or
-                        re.search(rf"\b{re.escape(u.name.lower())}\b\s+(transactions|history|ledger)", msg_lower)):
-                        target_username = u.username
-                        target_user_obj = u
-                        break
-
-            # 3. Detect Other Party (only if it is not the target user we are querying)
-            for u in all_users:
-                if u.username != target_username and (u.username in msg_lower or u.name.lower() in msg_lower):
+                if u.username != username and (u.username in msg_lower or u.name.lower() in msg_lower):
                     filter_party = u.name.lower()
                     break
             
-            # Query and filter
-            query = select(TransactionTable).where(TransactionTable.username == target_username)
+            # Query and filter - strictly for authenticated user
+            query = select(TransactionTable).where(TransactionTable.username == username)
             if filter_type:
                 query = query.where(TransactionTable.type == filter_type)
             if filter_channel:
@@ -493,10 +476,10 @@ async def chat_endpoint(
                 if filter_channel: filter_desc.append(f"channel '{filter_channel}'")
                 if filter_party: filter_desc.append(f"involving '{filter_party}'")
                 filters_str = " and ".join(filter_desc)
-                user_label = f"for user '{target_user_obj.name}'" if target_username != username else "in your history"
+                user_label = "in your history"
                 response_text = api_error_msg + (f"No transactions found matching {filters_str} {user_label}." if filters_str else f"No transactions found {user_label}.")
             else:
-                user_label = f"for user '{target_user_obj.name}'" if target_username != username else "in your history"
+                user_label = "in your history"
                 table = api_error_msg + f"[Simulation Mode] Here are the last {len(txs)} transactions {user_label}:\n\n| Date | Description | Category | Type | Amount |\n| :--- | :--- | :--- | :--- | :--- |\n"
                 for tx in txs:
                     sign = "+" if tx.type.lower() == "credit" else "-"

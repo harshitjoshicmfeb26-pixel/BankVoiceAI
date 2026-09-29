@@ -10,7 +10,7 @@ from database import get_db_session
 from models import UserTable, TransactionTable
 from assistant import chat_histories, client
 from google.genai import types
-from utils import check_passphrase_similarity, get_current_user
+from utils import check_passphrase_similarity, get_current_user, create_access_token
 from schemas import (
     LoginRequest,
     RegisterRequest,
@@ -22,6 +22,9 @@ from schemas import (
 )
 
 router = APIRouter()
+
+# In-memory rate limiter for voice login attempts: username -> list of timestamp floats
+voice_login_attempts = {}
 
 
 @router.post("/api/login")
@@ -121,8 +124,10 @@ async def register_endpoint(request: RegisterRequest, session: Session = Depends
             with open(filepath, "wb") as f:
                 f.write(audio_bytes)
         
+        token = create_access_token(username)
         return {
             "success": True,
+            "token": token,
             "username": username,
             "name": request.name
         }
@@ -134,44 +139,50 @@ async def register_endpoint(request: RegisterRequest, session: Session = Depends
 async def voice_login_endpoint(request: VoiceLoginRequest, session: Session = Depends(get_db_session)):
     spoken = request.passphrase.lower().strip()
     
-    matched_user = None
-    if request.username:
-        username_clean = request.username.lower().strip()
-        user = session.exec(select(UserTable).where(UserTable.username == username_clean)).first()
-        if user:
-            if user.voice_passphrase and check_passphrase_similarity(user.voice_passphrase, spoken):
-                matched_user = user
-    else:
-        all_users = session.exec(select(UserTable)).all()
-        best_user = None
-        best_score = -1.0
-        for user in all_users:
-            if user.voice_passphrase and check_passphrase_similarity(user.voice_passphrase, spoken):
-                reg_clean = re.sub(r"[^\w\s]", "", user.voice_passphrase.lower()).strip()
-                spk_clean = re.sub(r"[^\w\s]", "", spoken).strip()
-                
-                import difflib
-                char_ratio = difflib.SequenceMatcher(None, reg_clean, spk_clean).ratio()
-                
-                score = char_ratio
-                if reg_clean == spk_clean:
-                    score = 2.0
-                elif reg_clean in spk_clean or spk_clean in reg_clean:
-                    score += 0.2
-                    
-                if score > best_score:
-                    best_score = score
-                    best_user = user
-                    
-        if best_user:
-            matched_user = best_user
-            
-    if not matched_user:
+    if not request.username or not request.username.strip():
+        return {
+            "success": False,
+            "message": "Please enter your username to log in with voice."
+        }
+        
+    username_clean = request.username.lower().strip()
+    now_ts = datetime.datetime.now().timestamp()
+    
+    # Rate limit check: max 5 failed attempts per 5-minute rolling window
+    recent_attempts = [t for t in voice_login_attempts.get(username_clean, []) if now_ts - t < 300]
+    voice_login_attempts[username_clean] = recent_attempts
+    if len(recent_attempts) >= 5:
+        return {
+            "success": False,
+            "message": "Too many failed voice login attempts. Please wait 5 minutes before trying again."
+        }
+        
+    # Minimum spoken length validation
+    if len(spoken) < 6:
+        voice_login_attempts[username_clean].append(now_ts)
+        return {
+            "success": False,
+            "message": "Spoken passphrase is too short. Please speak your full registered passphrase."
+        }
+        
+    user = session.exec(select(UserTable).where(UserTable.username == username_clean)).first()
+    if not user:
+        voice_login_attempts[username_clean].append(now_ts)
+        return {
+            "success": False,
+            "message": "User not found."
+        }
+        
+    if not user.voice_passphrase or not check_passphrase_similarity(user.voice_passphrase, spoken):
+        voice_login_attempts[username_clean].append(now_ts)
         return {
             "success": False,
             "message": "Voice passphrase not matched."
         }
         
+    # Clear rate limit attempts upon successful verification
+    voice_login_attempts.pop(username_clean, None)
+    matched_user = user
     username = matched_user.username
     
     # Bypassing voice biometric verification as requested.
@@ -343,8 +354,10 @@ async def face_login_endpoint(request: FaceLoginRequest, session: Session = Depe
             
         if is_same:
             chat_histories[username_clean] = []
+            token = create_access_token(username_clean)
             return {
                 "success": True,
+                "token": token,
                 "username": username_clean,
                 "name": user.name,
                 "message": "Face verified successfully!"
@@ -390,10 +403,7 @@ async def face_login_endpoint(request: FaceLoginRequest, session: Session = Depe
                 "message": "Face verified successfully!"
             }
         else:
-            detail_msg = f"Identity could not be matched. (Best match similarity: {best_similarity:.4f}, threshold: 0.35)"
-            if all_similarities:
-                detail_msg += f" Checked: {all_similarities}"
-            raise HTTPException(status_code=401, detail=detail_msg)
+            raise HTTPException(status_code=401, detail="Identity could not be matched. No matching face scan found.")
 
 
 
