@@ -82,7 +82,6 @@ NidhiVani AI is a cutting-edge, voice-first digital banking assistant built for 
 | **Rates** | Savings, Fixed Deposits, Recurring Deposits, Loans | FD: 1-Yr 6.80%, 3-Yr 7.10% (Senior Citizen +0.50% $\rightarrow$ 7.30%). Savings: 3.00% to 4.00%. Home Loan: 8.40%. |
 | **Limits** | IMPS, NEFT, RTGS, Voice Banking Caps | IMPS: ₹2L per tx, ₹5L daily. Voice Transfer Security Cap: ₹10,000 per tx, ₹25,000 daily (Mandatory MPIN). |
 | **Compliance** | KYC, Re-KYC, Cyber Fraud, Lost Cards | Accepted: Passport, Driving Licence, Aadhaar, Voter ID. Cyber Fraud: 1930 Helpline, 72-hr Zero Liability. |
-| **Branches** | Mumbai, Pune, Delhi Central, Timings | Pune: FC Road (IFSC: NIDH0002001). Mumbai: Nariman Point (IFSC: NIDH0001001). Delhi: Connaught Place (IFSC: NIDH0003001). |
 
 ---
 
