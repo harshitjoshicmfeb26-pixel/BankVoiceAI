@@ -1,7 +1,7 @@
 """
-rag_service.py - 100% Offline PostgreSQL Knowledge Base & Retrieval Service for NidhiVani AI.
+rag_service.py - Local PostgreSQL Knowledge Base & Offline Retrieval Service for NidhiVani AI.
 Provides fast keyword, semantic tag, and full-text retrieval across English, Hindi, and Marathi.
-Zero external downloads, zero third-party mirrors, and zero external API dependencies.
+Zero external embedding model downloads, zero third-party vector cloud services.
 """
 
 import re
@@ -299,9 +299,9 @@ def init_knowledge_base(force: bool = False):
 
 def search_knowledge_base(query: str, language: str = "en-in") -> Dict[str, Any]:
     """
-    100% Offline Retrieval Tool for NidhiVani AI.
+    Local Offline Retrieval Tool for NidhiVani AI.
     Searches PostgreSQL bank_knowledge_chunk table using multilingual token matching and relevance scoring.
-    Automatically detects user's input language (Devanagari Marathi/Hindi) and returns the native response.
+    Executes completely locally without calling external embedding or vector database APIs.
     """
     if not query or not query.strip():
         return {

@@ -1,6 +1,6 @@
 # NidhiVani AI (BankVoiceAI)
 
-NidhiVani AI is a cutting-edge, voice-first digital banking assistant built for Indian banking ecosystems. It combines a sleek glassmorphic conversational interface with advanced biometric authentication, multi-agent LangGraph orchestration, 100% offline PostgreSQL RAG (Retrieval-Augmented Generation), and resilient multi-model failover.
+NidhiVani AI is a cutting-edge, voice-first digital banking assistant built for Indian banking ecosystems. It combines a sleek glassmorphic conversational interface with advanced biometric authentication, multi-agent LangGraph orchestration, local PostgreSQL knowledge retrieval, and resilient Google Gemini multi-model failover.
 
 ---
 
@@ -11,10 +11,10 @@ NidhiVani AI is a cutting-edge, voice-first digital banking assistant built for 
   * **Account Specialist**: Balances, ledgers, transaction history, and fund transfers.
   * **Fixed Deposit Specialist**: Personal FD portfolio, rates, and maturity details.
   * **Support Specialist**: Banking policies, branch locations, interest rates, and compliance.
-* **100% Offline Multilingual PostgreSQL RAG**:
-  * 18 curated, authoritative policy chunks derived from bank regulatory documentation stored directly in PostgreSQL (`bank_knowledge_chunk`).
-  * Sub-3ms deterministic retrieval latency across English, Hindi, and Marathi.
-  * Zero external embedding model downloads or third-party vector search dependencies.
+* **Hybrid RAG Architecture (Local Retrieval + Cloud LLM Generation)**:
+  * **Local Offline Retrieval Engine**: 18 curated, authoritative policy chunks stored in local PostgreSQL (`bank_knowledge_chunk`). Chunk retrieval, scoring, and cross-script phonetic matching execute 100% locally in sub-3ms without calling external embedding APIs or cloud vector databases (e.g., Pinecone/Weaviate).
+  * **Online Gemini Agent Synthesis**: The retrieved policy text is fed into Google Gemini (`gemini-3.5-flash`), which synthesizes contextual, conversational responses in the requested language.
+  * **Offline Simulation Fallback**: If external Gemini APIs are unreachable, a deterministic local rule-based engine acts as a safety net.
 * **Cross-Script & Colloquial Understanding**:
   * Seamlessly understands Hindi and Marathi written in English (Hinglish/Marathlish, e.g., *"pune waali branch main fd ka interest rate kya milega?"*).
   * Dynamic phonetic vocabulary mapping (`ROMAN_PHONETIC_BANKING_MAP`) expands Romanized terms into Devanagari tokens.
