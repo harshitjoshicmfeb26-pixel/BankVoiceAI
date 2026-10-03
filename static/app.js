@@ -763,13 +763,25 @@ function speakText(text) {
 
     const voices = window.speechSynthesis.getVoices();
     let targetVoice = null;
-    utterance.lang = selectedLanguage;
+    let voiceLang = selectedLanguage;
 
-    if (selectedLanguage === 'hi-IN') {
+    // Auto-detect Devanagari script for speech synthesis
+    if (/[\u0900-\u097F]/.test(cleanText)) {
+        const mrMarkers = ['आहे', 'नाही', 'पत्ता', 'शाखा', 'सांगा', 'शिल्लक', 'वेळ', 'काय', 'मुदत', 'ठेव', 'कर्ज', 'दर', 'शून्य', 'पुणे', 'मुंबई'];
+        if (mrMarkers.some(m => cleanText.includes(m)) || selectedLanguage === 'mr-IN') {
+            voiceLang = 'mr-IN';
+        } else {
+            voiceLang = 'hi-IN';
+        }
+    }
+
+    utterance.lang = voiceLang;
+
+    if (voiceLang === 'hi-IN') {
         targetVoice = voices.find(voice =>
             voice.lang.includes('hi') || voice.name.includes('हिन्दी') || voice.name.includes('Hindi')
         );
-    } else if (selectedLanguage === 'mr-IN') {
+    } else if (voiceLang === 'mr-IN') {
         targetVoice = voices.find(voice =>
             voice.lang.includes('mr') || voice.name.includes('मराठी') || voice.name.includes('Marathi')
         );
@@ -780,7 +792,7 @@ function speakText(text) {
         }
     } else {
         targetVoice = voices.find(voice =>
-            voice.lang.includes('en') && (voice.name.includes('Google') || voice.name.includes('Natural') || voice.name.includes('Samantha'))
+            voice.lang.includes('en') && (voice.name.includes('Google') || voice.name.includes('Natural') || voice.name.includes('Samantha') || voice.name.includes('India'))
         );
     }
     if (targetVoice) utterance.voice = targetVoice;

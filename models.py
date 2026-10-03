@@ -38,3 +38,15 @@ class FixedDepositTable(SQLModel, table=True):
     booking_date: str
     maturity_date: str
     status: str
+
+
+class BankKnowledgeChunk(SQLModel, table=True):
+    __tablename__ = "bank_knowledge_chunk"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    doc_id: str = Field(index=True)
+    category: str = Field(index=True)
+    title: str
+    content_en: str
+    content_hi: str
+    content_mr: str
+    keywords: str = Field(index=True)

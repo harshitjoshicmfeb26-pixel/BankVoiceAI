@@ -22,6 +22,8 @@ if api_key:
 
 # Session context tracking for Gemini synchronous functions
 current_user_var = contextvars.ContextVar("current_user", default=None)
+# Session language tracking for multilingual tool responses
+current_language_var = contextvars.ContextVar("current_language", default="en-in")
 # Context variable to hold transactions returned by the last query
 last_queried_transactions = contextvars.ContextVar("last_queried_transactions", default=None)
 
@@ -191,7 +193,7 @@ def send_money(recipient: str, amount: float, source_account: str = "savings") -
                 )
                 try:
                     response = client.models.generate_content(
-                        model='gemini-3.6-flash',
+                        model='gemini-3.5-flash',
                         contents=prompt
                     )
                     if hasattr(response, "usage_metadata") and response.usage_metadata:
@@ -261,3 +263,22 @@ def get_balance() -> str:
             f"- Savings Account: ₹{db_user.savings_balance:.2f}\n"
             f"- Checking Account: ₹{db_user.checking_balance:.2f}"
         )
+
+
+def search_bank_knowledge_base(query: str) -> str:
+    """
+    Searches the official NidhiVani AI banking knowledge base for authoritative policies,
+    interest rates (Savings, Fixed Deposit, Recurring Deposit, Loans), branch locations, 
+    IFSC codes, operational timings, transaction limits (IMPS, NEFT, RTGS, voice limits), 
+    KYC documents, and cyber fraud reporting helplines (1930).
+    
+    Args:
+        query: The customer's question or search terms regarding bank rules, rates, branches, or policies.
+        
+    Returns:
+        The official, verified banking policy response.
+    """
+    from rag_service import search_knowledge_base
+    active_lang = current_language_var.get() or "en-in"
+    result = search_knowledge_base(query, language=active_lang)
+    return result["answer"]

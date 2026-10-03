@@ -159,6 +159,10 @@ def init_db():
             if has_updates:
                 session.commit()
 
+        # Initialize and seed RAG knowledge base table if needed
+        from rag_service import init_knowledge_base
+        init_knowledge_base()
+
 # Session Dependency injection helper for endpoints
 def get_db_session():
     with Session(engine) as session:

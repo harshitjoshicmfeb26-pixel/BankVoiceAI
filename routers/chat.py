@@ -12,6 +12,7 @@ from models import UserTable, TransactionTable, FixedDepositTable
 from assistant import (
     client,
     current_user_var,
+    current_language_var,
     pending_transfers,
     last_queried_transactions,
     chat_histories
@@ -61,6 +62,9 @@ async def chat_endpoint(
         raise HTTPException(status_code=404, detail="User session not found.")
         
     current_user_var.set(username)
+    from rag_service import detect_query_language
+    effective_language = detect_query_language(request.message, request.language)
+    current_language_var.set(effective_language)
 
     # Check if there is a pending transfer for this user
     if username in pending_transfers:
@@ -72,9 +76,10 @@ async def chat_endpoint(
         if any(cancel_word in user_msg for cancel_word in ["cancel", "abort", "stop", "no"]):
             del pending_transfers[username]
             resp = {
-                "response": get_translated_message("cancel_success", request.language),
+                "response": get_translated_message("cancel_success", effective_language),
                 "state": get_user_current_state(username, session),
-                "pending_transfer": False
+                "pending_transfer": False,
+                "language": effective_language
             }
             
         else:
@@ -130,17 +135,18 @@ async def chat_endpoint(
                     del transfer_info["pending_recipient_resolution"]
                     del transfer_info["possible_recipients"]
                     
-                    response_text = get_translated_message("pending_transfer_prompt", request.language, amount=transfer_info['amount'], recipient_name=matched_recipient['name'])
+                    response_text = get_translated_message("pending_transfer_prompt", effective_language, amount=transfer_info['amount'], recipient_name=matched_recipient['name'])
                     resp = {
                         "response": response_text,
                         "state": get_user_current_state(username, session),
-                        "pending_transfer": True
+                        "pending_transfer": True,
+                        "language": effective_language
                     }
                 else:
                     options_str = " or ".join([f"{pr['name']} ({pr['username']})" for pr in possible])
-                    if "hi" in (request.language or "").lower():
+                    if "hi" in (effective_language or "").lower():
                         prompt_msg = f"कृपया स्पष्ट करें कि आप किसे पैसे भेजना चाहते हैं: {options_str}?"
-                    elif "mr" in (request.language or "").lower():
+                    elif "mr" in (effective_language or "").lower():
                         prompt_msg = f"कृपया स्पष्ट करा की तुम्हाला कोणाला पैसे पाठवायचे आहेत: {options_str}?"
                     else:
                         prompt_msg = f"I found multiple matches. Did you mean {options_str}? Please specify the recipient's name or username."
@@ -148,7 +154,8 @@ async def chat_endpoint(
                     resp = {
                         "response": prompt_msg,
                         "state": get_user_current_state(username, session),
-                        "pending_transfer": True
+                        "pending_transfer": True,
+                        "language": effective_language
                     }
 
             else:
@@ -218,16 +225,17 @@ async def chat_endpoint(
                             session.expire_all()
                             
                             new_balance = getattr(db_sender, f"{source}_balance")
-                            response_text = get_translated_message("transfer_success", request.language, amount=amount, recipient_name=recipient_name, source=source, new_balance=new_balance)
+                            response_text = get_translated_message("transfer_success", effective_language, amount=amount, recipient_name=recipient_name, source=source, new_balance=new_balance)
                             
                         except Exception as e:
                             session.rollback()
-                            response_text = get_translated_message("transfer_failed", request.language, error=str(e))
+                            response_text = get_translated_message("transfer_failed", effective_language, error=str(e))
                             
                         resp = {
                             "response": response_text,
                             "state": get_user_current_state(username, session),
-                            "pending_transfer": False
+                            "pending_transfer": False,
+                            "language": effective_language
                         }
                     else:
                         # Incorrect MPIN
@@ -239,31 +247,34 @@ async def chat_endpoint(
                             # Cancel the transfer and signal logout
                             del pending_transfers[username]
                             resp = {
-                                "response": get_translated_message("too_many_attempts", request.language),
+                                "response": get_translated_message("too_many_attempts", effective_language),
                                 "state": get_user_current_state(username, session),
                                 "pending_transfer": False,
-                                "logout": True
+                                "logout": True,
+                                "language": effective_language
                             }
                         else:
                             remaining_attempts = 3 - attempts
                             attempt_word = "attempt" if remaining_attempts == 1 else "attempts"
-                            if "hi" in (request.language or "").lower():
+                            if "hi" in (effective_language or "").lower():
                                 attempt_word = "प्रयास"
-                            elif "mr" in (request.language or "").lower():
+                            elif "mr" in (effective_language or "").lower():
                                 attempt_word = "प्रयत्न"
                                 
                             resp = {
-                                "response": get_translated_message("incorrect_mpin", request.language, remaining_attempts=remaining_attempts, attempt_word=attempt_word),
+                                "response": get_translated_message("incorrect_mpin", effective_language, remaining_attempts=remaining_attempts, attempt_word=attempt_word),
                                 "state": get_user_current_state(username, session),
-                                "pending_transfer": True
+                                "pending_transfer": True,
+                                "language": effective_language
                             }
                 else:
                     # User sent a message but did not provide a 4-digit MPIN or cancel
                     transfer_details = pending_transfers[username]
                     resp = {
-                        "response": get_translated_message("pending_transfer_prompt", request.language, amount=transfer_details['amount'], recipient_name=transfer_details['recipient_name']),
+                        "response": get_translated_message("pending_transfer_prompt", effective_language, amount=transfer_details['amount'], recipient_name=transfer_details['recipient_name']),
                         "state": get_user_current_state(username, session),
-                        "pending_transfer": True
+                        "pending_transfer": True,
+                        "language": effective_language
                     }
         if resp:
             add_to_history(username, request.message, resp["response"])
@@ -279,7 +290,7 @@ async def chat_endpoint(
                 "hi-in": "Hindi",
                 "mr-in": "Marathi"
             }
-            lang_name = lang_names.get(request.language.lower() if request.language else "en-in", "English")
+            lang_name = lang_names.get((effective_language or "en-in").lower(), "English")
 
             # Reset last queried transactions before generation
             last_queried_transactions.set(None)
@@ -317,7 +328,8 @@ async def chat_endpoint(
                 "state": get_user_current_state(username, session),
                 "pending_transfer": username in pending_transfers,
                 "queried_transactions": queried_txs,
-                "active_agent": active_agent
+                "active_agent": active_agent,
+                "language": effective_language
             }
         except Exception as e:
             fallback_to_simulation = True
@@ -389,12 +401,13 @@ async def chat_endpoint(
                     "hi-in": "त्रुटि: मान्य प्राप्तकर्ता की पहचान नहीं हो सकी। कृपया नाम स्पष्ट रूप से बताएं (जैसे 'बॉब को भेजें')।",
                     "mr-in": "त्रुटि: वैध प्राप्तकर्ता ओळखता आला नाही. कृपया नाव स्पष्टपणे सांगा (उदा. 'बॉबला पाठवा')."
                 }
-                lang_key = (request.language or "en-in").lower().strip()
+                lang_key = (effective_language or "en-in").lower().strip()
                 err_msg = err_msgs.get(lang_key if lang_key in ["hi-in", "mr-in"] else "en-in")
                 return {
                     "response": api_error_msg + err_msg,
                     "state": get_user_current_state(username, session),
-                    "pending_transfer": False
+                    "pending_transfer": False,
+                    "language": effective_language
                 }
 
             if len(matching_users) > 1:
@@ -408,9 +421,9 @@ async def chat_endpoint(
                 }
                 
                 options_str = " or ".join([f"{u.name} ({u.username})" for u in matching_users])
-                if "hi" in (request.language or "").lower():
+                if "hi" in (effective_language or "").lower():
                     response_text = api_error_msg + f"[सिमुलेशन मोड] मुझे एक से अधिक प्राप्तकर्ता मिले। क्या आपका मतलब {options_str} से था? कृपया स्पष्ट करें।"
-                elif "mr" in (request.language or "").lower():
+                elif "mr" in (effective_language or "").lower():
                     response_text = api_error_msg + f"[सिम्युलेशन मोड] मला एकापेक्षा जास्त प्राप्तकर्ते आढळले. तुम्हाला {options_str} ला पैसे पाठवायचे आहेत का? कृपया स्पष्ट करा."
                 else:
                     response_text = api_error_msg + f"[Simulation Mode] I found multiple matching recipients: {options_str}. Whom did you want to send money to? Please specify their name or username."
@@ -426,7 +439,7 @@ async def chat_endpoint(
                     "attempts": 0
                 }
                 
-                response_text = api_error_msg + get_simulation_message("transfer_pending", request.language, amount=amount, recipient_name=db_recipient.name, source=source)
+                response_text = api_error_msg + get_simulation_message("transfer_pending", effective_language, amount=amount, recipient_name=db_recipient.name, source=source)
                 
         elif "transaction" in user_msg or "history" in user_msg or "statement" in user_msg or "लेन" in user_msg or "इतिहास" in user_msg or "व्यवहार" in user_msg:
             # Parse filters from user message for simulation fallback
@@ -493,34 +506,53 @@ async def chat_endpoint(
                         "category": tx.category
                     })
                 response_text = table
-        elif "balance" in user_msg or "bal" in user_msg or "बैलेंस" in user_msg or "शेष" in user_msg or "शिल्लक" in user_msg:
-            response_text = api_error_msg + get_simulation_message("balance_details", request.language, savings_balance=db_user.savings_balance, checking_balance=db_user.checking_balance)
-        elif "fd" in user_msg or "fixed deposit" in user_msg or "tenure" in user_msg or "सावधि" in user_msg or "मुदत" in user_msg:
+        elif any(w in user_msg for w in ["my balance", "check balance", "account balance", "balance", "bal", "बैलेंस", "शिल्लक", "शेष"]) and not any(w in user_msg for w in ["minimum", "mab", "aqb", "rate", "rates", "interest", "slab", "penalty", "charge", "किमान", "न्यूनतम", "दर", "ब्याज", "व्याज", "दंड", "शुल्क"]):
+            response_text = api_error_msg + get_simulation_message("balance_details", effective_language, savings_balance=db_user.savings_balance, checking_balance=db_user.checking_balance)
+            sim_agent = "Simulation (Account Specialist)"
+        elif any(w in user_msg for w in ["my fd", "my fixed deposit", "check fd", "fd status", "fd mature", "maturity", "existing fd", "active fd", "मेरी एफडी", "माझी मुदत ठेव", "माझी एफडी"]) and not any(w in user_msg for w in ["rate", "rates", "interest", "open", "new", "slab", "slabs", "bonus", "senior", "rules", "दर", "ब्याज", "व्याज", "नवीन", "नया", "सूट"]):
             fds = session.exec(select(FixedDepositTable).where(FixedDepositTable.username == username)).all()
             if fds:
                 fd = fds[0]
-                response_text = api_error_msg + get_simulation_message("fd_details", request.language, id=fd.id, tenure=fd.tenure, maturity_date=fd.maturity_date)
+                response_text = api_error_msg + get_simulation_message("fd_details", effective_language, id=fd.id, tenure=fd.tenure, maturity_date=fd.maturity_date)
             else:
-                response_text = api_error_msg + get_simulation_message("no_fds", request.language)
+                response_text = api_error_msg + get_simulation_message("no_fds", effective_language)
+            sim_agent = "Simulation (Fixed Deposit Specialist)"
         else:
-            response_text = api_error_msg + get_simulation_message("default_welcome", request.language, name=db_user.name)
+            # 100% Offline PostgreSQL RAG Retrieval for Support Queries & Policy Inquiries
+            from rag_service import search_knowledge_base
+            rag_result = search_knowledge_base(request.message, effective_language)
+            if rag_result.get("found"):
+                response_text = api_error_msg + rag_result["answer"]
+                sim_agent = "Simulation (Support Specialist)"
+            elif any(w in user_msg for w in ["fd", "fixed deposit", "मुदत", "सावधि"]):
+                # Fallback to user's FD records only if RAG found nothing relevant
+                fds = session.exec(select(FixedDepositTable).where(FixedDepositTable.username == username)).all()
+                if fds:
+                    fd = fds[0]
+                    response_text = api_error_msg + get_simulation_message("fd_details", effective_language, id=fd.id, tenure=fd.tenure, maturity_date=fd.maturity_date)
+                else:
+                    response_text = api_error_msg + get_simulation_message("no_fds", effective_language)
+                sim_agent = "Simulation (Fixed Deposit Specialist)"
+            else:
+                response_text = api_error_msg + get_simulation_message("default_welcome", effective_language, name=db_user.name)
+                sim_agent = "Simulation (Support Specialist)"
             
         is_tx_query = "transaction" in user_msg or "history" in user_msg or "statement" in user_msg or "लेन" in user_msg or "इतिहास" in user_msg or "व्यवहार" in user_msg
         
-        # Determine simulation agent
-        if "send" in user_msg or "transfer" in user_msg or "balance" in user_msg or "account" in user_msg or "खाता" in user_msg or "खाते" in user_msg or "savings" in user_msg or "checking" in user_msg or is_tx_query:
-            sim_agent = "Simulation (Account Specialist)"
-        elif "fd" in user_msg or "fixed deposit" in user_msg or "tenure" in user_msg or "सावधि" in user_msg or "मुदत" in user_msg:
-            sim_agent = "Simulation (Fixed Deposit Specialist)"
-        else:
-            sim_agent = "Simulation (Support Specialist)"
+        # Determine simulation agent fallback if not set
+        if not sim_agent:
+            if "send" in user_msg or "transfer" in user_msg or is_tx_query:
+                sim_agent = "Simulation (Account Specialist)"
+            else:
+                sim_agent = "Simulation (Support Specialist)"
 
         resp = {
             "response": response_text,
             "state": get_user_current_state(username, session),
             "pending_transfer": username in pending_transfers,
             "queried_transactions": queried_txs if is_tx_query else None,
-            "active_agent": sim_agent
+            "active_agent": sim_agent,
+            "language": effective_language
         }
         add_to_history(username, request.message, resp["response"])
         return resp

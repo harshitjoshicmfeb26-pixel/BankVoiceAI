@@ -9,24 +9,39 @@ from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
 
 # Import database/agent tools
-from assistant import get_transaction_history, send_money, get_fixed_deposit_details, get_balance
+from assistant import get_transaction_history, send_money, get_fixed_deposit_details, get_balance, search_bank_knowledge_base
 from utils import log_token_usage
 
 # Load environment variables
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 
-# Initialize models
-# We instantiate them if the API key is configured. If not, they will raise an exception on invoke,
-# which routes.py will catch and fall back to Simulation Mode.
-router_llm = ChatGoogleGenerativeAI(model="gemini-3.6-flash", google_api_key=api_key, temperature=0.0, max_retries=1)
-account_llm = ChatGoogleGenerativeAI(model="gemini-3.6-flash", google_api_key=api_key, temperature=0.2, max_retries=1)
-fd_llm = ChatGoogleGenerativeAI(model="gemini-3.6-flash", google_api_key=api_key, temperature=0.2, max_retries=1)
-support_llm = ChatGoogleGenerativeAI(model="gemini-3.6-flash", google_api_key=api_key, temperature=0.2, max_retries=1)
+# Primary model (gemini-3.5-flash) and Automatic Fallback model (gemini-3.5-flash-lite)
+# If the primary model encounters a quota limit (429), downtime (503), or deprecation,
+# LangChain automatically fails over to the backup model seamlessly.
+router_primary = ChatGoogleGenerativeAI(model="gemini-3.5-flash", google_api_key=api_key, temperature=0.0, max_retries=2)
+router_fallback = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite", google_api_key=api_key, temperature=0.0, max_retries=2)
+router_llm = router_primary.with_fallbacks([router_fallback])
 
-# Bind tools to the LLMs that use them
-account_llm_with_tools = account_llm.bind_tools([get_transaction_history, send_money, get_balance])
-fd_llm_with_tools = fd_llm.bind_tools([get_fixed_deposit_details])
+account_primary = ChatGoogleGenerativeAI(model="gemini-3.5-flash", google_api_key=api_key, temperature=0.2, max_retries=2)
+account_fallback = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite", google_api_key=api_key, temperature=0.2, max_retries=2)
+
+fd_primary = ChatGoogleGenerativeAI(model="gemini-3.5-flash", google_api_key=api_key, temperature=0.2, max_retries=2)
+fd_fallback = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite", google_api_key=api_key, temperature=0.2, max_retries=2)
+
+support_primary = ChatGoogleGenerativeAI(model="gemini-3.5-flash", google_api_key=api_key, temperature=0.2, max_retries=2)
+support_fallback = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite", google_api_key=api_key, temperature=0.2, max_retries=2)
+
+# Bind tools to the primary LLMs with automatic fallbacks to backup bound tools
+account_llm_with_tools = account_primary.bind_tools([get_transaction_history, send_money, get_balance]).with_fallbacks([
+    account_fallback.bind_tools([get_transaction_history, send_money, get_balance])
+])
+fd_llm_with_tools = fd_primary.bind_tools([get_fixed_deposit_details]).with_fallbacks([
+    fd_fallback.bind_tools([get_fixed_deposit_details])
+])
+support_llm_with_tools = support_primary.bind_tools([search_bank_knowledge_base]).with_fallbacks([
+    support_fallback.bind_tools([search_bank_knowledge_base])
+])
 
 # Define the state of our agent graph
 class AgentState(TypedDict):
@@ -91,7 +106,9 @@ def classify_intent_heuristically(messages: list) -> str:
     support_phrases = [
         "branch location", "where is the branch", "timings", "opening hours", 
         "closing hours", "customer care", "customer support", "loan rates", 
-        "loan details", "interest rates", "credit card", "debit card"
+        "loan details", "interest rates", "credit card", "debit card",
+        "rate of interest", "fd rate", "fd rates", "fixed deposit rate", "fixed deposit rates",
+        "open fd", "open new fd", "new fd", "open fixed deposit", "minimum balance", "mab"
     ]
     if any(phrase in msg_clean for phrase in support_phrases):
         return "support"
@@ -105,13 +122,16 @@ def classify_intent_heuristically(messages: list) -> str:
     }
     
     fd_keywords = {
-        "fd", "fds", "fixed", "deposit", "deposits", "maturity", "tenure", "booking", "interest",
-        "सावधि", "मुदत"
+        "fd", "fds", "fixed", "deposit", "deposits", "maturity", "tenure", "booking",
+        "सावधि", "मुदत", "एफडी", "डिपॉजिट", "डिपॉझिट"
     }
     
     support_keywords = {
         "hours", "timing", "timings", "location", "locations", "branch", "branches", 
-        "customer", "care", "support", "help", "loan", "loans", "card", "cards", "policy", "policies"
+        "customer", "care", "support", "help", "loan", "loans", "card", "cards", "policy", "policies",
+        "rate", "rates", "interest", "slab", "slabs", "senior", "bonus", "minimum", "mab", "aqb",
+        "charge", "charges", "penalty", "fee", "fees", "kyc", "fraud", "1930", "helpline", "tollfree",
+        "व्याज", "ब्याज", "दर", "एफडी", "डिपॉजिट", "डिपॉझिट", "नया", "नवीन", "खोलने"
     }
     
     # Check word overlaps
@@ -119,13 +139,13 @@ def classify_intent_heuristically(messages: list) -> str:
     has_fd = any(w in fd_keywords for w in words)
     has_support = any(w in support_keywords for w in words)
     
-    # If there is a single clear category match, return it
-    if has_account and not has_fd and not has_support:
-        return "account"
-    if has_fd and not has_account and not has_support:
-        return "fd"
-    if has_support and not has_account and not has_fd:
+    # Prioritize Support for inquiries about rates, policies, and branch info
+    if has_support:
         return "support"
+    if has_account and not has_fd:
+        return "account"
+    if has_fd and not has_account:
+        return "fd"
         
     # 4. Check for numeric messages (amount or MPIN) or simple confirmations
     is_number = msg_clean.isdigit() or re.match(r"^\d+(\.\d+)?\s*(rs|rupees|rupee)?$", msg_clean)
@@ -184,15 +204,38 @@ def router_node(state: AgentState):
         
     return {"next_agent": next_agent}
 
+def resolve_effective_language(messages: Sequence[BaseMessage], default_lang: str = "English") -> str:
+    from rag_service import detect_query_language
+    last_user_text = ""
+    for m in reversed(messages):
+        if isinstance(m, HumanMessage):
+            last_user_text = m.content if isinstance(m.content, str) else str(m.content)
+            break
+            
+    detected = detect_query_language(last_user_text, default_lang)
+    lang_map = {
+        "hi-in": "Hindi", "hi": "Hindi", "hindi": "Hindi",
+        "mr-in": "Marathi", "mr": "Marathi", "marathi": "Marathi",
+        "en-in": "English", "en-us": "English", "en": "English", "english": "English"
+    }
+    if detected in ["hi-in", "mr-in"]:
+        return lang_map.get(detected, "Hindi")
+    return lang_map.get((default_lang or "").lower().strip(), default_lang or "English")
+
 def account_agent_node(state: AgentState):
     messages = state["messages"]
     db_user_name = state.get("db_user_name", "")
-    lang_name = state.get("language_name", "English")
+    lang_name = resolve_effective_language(messages, state.get("language_name", "English"))
     
     system_instruction = (
         f"You are the Accounts and Transactions Specialist for 'NidhiVani AI'. "
-        f"You are assisting logged in user '{db_user_name}'. "
-        f"You MUST respond to the user strictly in the {lang_name} language (using the correct script, e.g., Devanagari for Hindi and Marathi). "
+        f"You are assisting logged in user '{db_user_name}'.\n\n"
+        f"CRITICAL MULTILINGUAL MANDATE:\n"
+        f"- Target Response Language: {lang_name}\n"
+        f"- You MUST respond to the user STRICTLY and 100% in {lang_name} using the native {('Devanagari' if lang_name in ['Hindi', 'Marathi'] else 'Latin')} script.\n"
+        f"- Even if tools return account numbers or amounts in English, you MUST present and explain everything in {lang_name}.\n"
+        f"- DO NOT output English sentences if the target language is Hindi or Marathi.\n\n"
+        f"OPERATIONAL INSTRUCTIONS:\n"
         f"Use the tools provided to access their accounts or send money. "
         f"If they ask to send money, use the send_money tool. Always verify if they specify checking/savings source; default to savings if unspecified. "
         f"If they ask for transaction history, use the get_transaction_history tool. "
@@ -213,12 +256,17 @@ def account_agent_node(state: AgentState):
 def fd_agent_node(state: AgentState):
     messages = state["messages"]
     db_user_name = state.get("db_user_name", "")
-    lang_name = state.get("language_name", "English")
+    lang_name = resolve_effective_language(messages, state.get("language_name", "English"))
     
     system_instruction = (
         f"You are the Fixed Deposit and Investment Advisor for 'NidhiVani AI'. "
-        f"You are assisting logged in user '{db_user_name}'. "
-        f"You MUST respond to the user strictly in the {lang_name} language (using the correct script, e.g., Devanagari for Hindi and Marathi). "
+        f"You are assisting logged in user '{db_user_name}'.\n\n"
+        f"CRITICAL MULTILINGUAL MANDATE:\n"
+        f"- Target Response Language: {lang_name}\n"
+        f"- You MUST respond to the user STRICTLY and 100% in {lang_name} using the native {('Devanagari' if lang_name in ['Hindi', 'Marathi'] else 'Latin')} script.\n"
+        f"- Even if tools return details in English, you MUST translate and explain everything in {lang_name}.\n"
+        f"- DO NOT output English sentences if the target language is Hindi or Marathi.\n\n"
+        f"OPERATIONAL INSTRUCTIONS:\n"
         f"Use the get_fixed_deposit_details tool to answer queries about their fixed deposits. "
         f"Keep your responses friendly, polite, and very short, optimized for voice text-to-speech."
     )
@@ -236,21 +284,26 @@ def fd_agent_node(state: AgentState):
 def support_agent_node(state: AgentState):
     messages = state["messages"]
     db_user_name = state.get("db_user_name", "")
-    lang_name = state.get("language_name", "English")
+    lang_name = resolve_effective_language(messages, state.get("language_name", "English"))
     
     system_instruction = (
         f"You are the General Customer Support Agent for 'NidhiVani AI'. "
-        f"You are assisting logged in user '{db_user_name}'. "
-        f"You MUST respond to the user strictly in the {lang_name} language (using the correct script, e.g., Devanagari for Hindi and Marathi). "
-        f"Answer general inquiries (e.g. branch hours, locations, general bank policies, loan rates). "
-        f"Note that NidhiVani AI does NOT offer any debit cards, credit cards, or card-related services. If the user asks about cards or blocking cards, politely inform them that NidhiVani AI does not support card services. "
-        f"You do not have access to any account tools, so you cannot transfer money or look up account details. "
-        f"If the user asks for account details or transactions, kindly let them know they should ask the Account Specialist. "
-        f"Keep your responses friendly, polite, and very short, optimized for voice text-to-speech."
+        f"You are assisting logged in user '{db_user_name}'.\n\n"
+        f"CRITICAL MULTILINGUAL MANDATE:\n"
+        f"- Target Response Language: {lang_name}\n"
+        f"- You MUST respond to the user STRICTLY and 100% in {lang_name} using the native {('Devanagari' if lang_name in ['Hindi', 'Marathi'] else 'Latin')} script.\n"
+        f"- Even if the tool ('search_bank_knowledge_base') returns facts in English, you MUST translate and explain the facts in {lang_name}.\n"
+        f"- DO NOT output English sentences if the target language is Hindi or Marathi.\n\n"
+        f"OPERATIONAL INSTRUCTIONS:\n"
+        f"Use the 'search_bank_knowledge_base' tool to look up official bank interest rates, loan rates, branch addresses, IFSC codes, operating hours, KYC documents, and fraud reporting policies. Ground your answers strictly on the tool's output. "
+        f"Note that NidhiVani AI does NOT offer any physical debit cards, credit cards, or card-related services. If the user asks about cards, politely inform them that NidhiVani AI is a digital branch and does not issue physical cards. "
+        f"You do not have access to private account balances or transfers, so you cannot transfer money. "
+        f"If the user asks for account balances or transfers, kindly let them know they should ask the Account Specialist. "
+        f"Keep your responses friendly, polite, and very short (1-2 sentences), optimized for voice text-to-speech."
     )
     
     formatted_messages = [SystemMessage(content=system_instruction)] + list(messages)
-    response = support_llm.invoke(formatted_messages)
+    response = support_llm_with_tools.invoke(formatted_messages)
     if hasattr(response, "usage_metadata"):
         log_token_usage("Support Specialist Agent", response.usage_metadata)
     
@@ -279,6 +332,8 @@ def tool_execution_node(state: AgentState):
                 result = get_fixed_deposit_details()
             elif tool_name == "get_balance":
                 result = get_balance()
+            elif tool_name == "search_bank_knowledge_base":
+                result = search_bank_knowledge_base(**tool_args)
             else:
                 result = f"Error: Tool {tool_name} not found."
         except Exception as e:
@@ -308,6 +363,8 @@ def route_back(state: AgentState):
     agent_name = state.get("active_agent_name")
     if agent_name == "Fixed Deposit Specialist":
         return "fd"
+    elif agent_name == "Support Specialist":
+        return "support"
     return "account"
 
 # --- Construct the LangGraph workflow ---
@@ -355,8 +412,15 @@ workflow.add_conditional_edges(
     }
 )
 
-# Support Agent has no tools, directly transitions to END
-workflow.add_edge("support_agent", END)
+# Support Agent conditional routing (loop to tools if needed)
+workflow.add_conditional_edges(
+    "support_agent",
+    should_continue,
+    {
+        "call_tools": "tool_execution_node",
+        "end": END
+    }
+)
 
 # Tool execution loops back to the caller agent
 workflow.add_conditional_edges(
@@ -364,7 +428,8 @@ workflow.add_conditional_edges(
     route_back,
     {
         "account": "account_agent",
-        "fd": "fd_agent"
+        "fd": "fd_agent",
+        "support": "support_agent"
     }
 )
 
