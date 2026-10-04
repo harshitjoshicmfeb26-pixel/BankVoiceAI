@@ -182,10 +182,10 @@ test_cases = [
     {
         "id": "TC-18",
         "category": "Branches",
-        "desc": "Toll-Free Customer Care (Hinglish)",
-        "query": "Customer care ka toll free number kya hai?",
+        "desc": "Customer Care & In-App Support (Hinglish)",
+        "query": "Customer care ya support kaise milega?",
         "lang": "hi-in",
-        "expected": "1800-123-NIDHI"
+        "expected": "डिजिटल बैंकिंग पोर्टल"
     },
 
     # --- Category 5: Conversational Compound & Edge Cases ---

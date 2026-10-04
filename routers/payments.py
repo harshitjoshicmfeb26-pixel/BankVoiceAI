@@ -10,6 +10,9 @@ router = APIRouter()
 
 from utils import get_current_user
 
+MAX_IMPS_PER_TX = 200000.0
+MAX_IMPS_DAILY_LIMIT = 500000.0
+
 @router.post("/api/payments/transfer")
 async def direct_transfer_endpoint(
     request: DirectPaymentRequest, 
@@ -26,6 +29,29 @@ async def direct_transfer_endpoint(
         
     if request.amount <= 0:
         raise HTTPException(status_code=400, detail="Transfer amount must be positive.")
+
+    # Enforce IMPS limits from banking operations policy
+    if request.amount > MAX_IMPS_PER_TX:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Transfer amount exceeds maximum per-transaction limit of ₹{MAX_IMPS_PER_TX:,.2f}."
+        )
+
+    today_str = datetime.datetime.now().strftime("%Y-%m-%d")
+    recent_txs = session.exec(
+        select(TransactionTable).where(
+            TransactionTable.username == sender_username,
+            TransactionTable.type.ilike("debit"),
+            TransactionTable.date.like(f"{today_str}%")
+        )
+    ).all()
+    daily_spent = sum(t.amount for t in recent_txs)
+    if daily_spent + request.amount > MAX_IMPS_DAILY_LIMIT:
+        remaining = max(0.0, MAX_IMPS_DAILY_LIMIT - daily_spent)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Daily IMPS transfer limit of ₹{MAX_IMPS_DAILY_LIMIT:,.2f} exceeded. You have already transferred ₹{daily_spent:,.2f} today. Remaining daily allowance: ₹{remaining:,.2f}."
+        )
         
     sender = session.exec(select(UserTable).where(UserTable.username == sender_username)).first()
     if not sender:

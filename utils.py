@@ -209,10 +209,10 @@ def verify_credential(entered_val: str, stored_val: str, on_success_callback=Non
 
 
 # JWT Configuration
-JWT_SECRET = os.getenv("JWT_SECRET")
-if not JWT_SECRET or JWT_SECRET == "super-secret-key-for-bank-voice-ai":
+JWT_SECRET = os.getenv("JWT_SECRET") or os.getenv("SECRET_KEY")
+if not JWT_SECRET or JWT_SECRET in ["super-secret-key-for-bank-voice-ai", "your_jwt_secret_key_here"]:
     raise RuntimeError(
-        "CRITICAL SECURITY ERROR: 'JWT_SECRET' is not set or uses the insecure repository default! "
+        "CRITICAL SECURITY ERROR: 'JWT_SECRET' (or 'SECRET_KEY') is not set or uses the insecure repository default! "
         "Please configure a strong, random JWT_SECRET in your .env file."
     )
 JWT_ALGORITHM = "HS256"

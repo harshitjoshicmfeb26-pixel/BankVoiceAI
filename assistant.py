@@ -143,9 +143,13 @@ def get_transaction_history(
             table += f"| {tx.date} | {tx.description} | {tx.category} | {tx.type} | {sign}₹{tx.amount:.2f} |\n"
         return table
 
+MAX_VOICE_TX_CAP = 10000.0
+MAX_VOICE_DAILY_CAP = 25000.0
+
 def send_money(recipient: str, amount: float, source_account: str = "savings") -> str:
     """
     Sends or transfers money to another bank customer from a specified source account.
+    Enforces voice security caps: maximum ₹10,000 per transaction and ₹25,000 daily cumulative limit.
     
     Args:
         recipient: The name or username of the person receiving the money.
@@ -159,6 +163,13 @@ def send_money(recipient: str, amount: float, source_account: str = "savings") -
     if amount <= 0:
         return "Error: Transfer amount must be greater than zero."
         
+    # Security Rule: Enforce per-transaction voice transfer cap
+    if amount > MAX_VOICE_TX_CAP:
+        return (
+            f"Error: Voice-initiated fund transfers are strictly capped at ₹{MAX_VOICE_TX_CAP:,.2f} per transaction for fraud protection. "
+            f"For transfers exceeding ₹10,000, please use our secure Internet Banking portal or visit your nearest branch."
+        )
+
     source = source_account.lower().strip()
     if source not in ["savings", "checking"]:
         return f"Error: Invalid source account '{source_account}'. Please choose 'savings' or 'checking'."
@@ -169,6 +180,27 @@ def send_money(recipient: str, amount: float, source_account: str = "savings") -
             db_sender = session.exec(select(UserTable).where(UserTable.username == sender)).first()
             if not db_sender:
                 return "Error: Sender profile not found in database."
+
+            # Security Rule: Enforce daily cumulative voice transfer cap
+            today_prefix = datetime.datetime.now().strftime("%Y-%m-%d")
+            recent_voice_txs = session.exec(
+                select(TransactionTable).where(
+                    TransactionTable.username == sender,
+                    TransactionTable.type.ilike("debit"),
+                    TransactionTable.date.like(f"{today_prefix}%")
+                )
+            ).all()
+            voice_spent = sum(
+                t.amount for t in recent_voice_txs
+                if (t.channel and t.channel.lower() == "voice") or ("(via voice)" in (t.description or "").lower())
+            )
+            if voice_spent + amount > MAX_VOICE_DAILY_CAP:
+                remaining_quota = max(0.0, MAX_VOICE_DAILY_CAP - voice_spent)
+                return (
+                    f"Error: Daily voice transfer limit of ₹{MAX_VOICE_DAILY_CAP:,.2f} would be exceeded. "
+                    f"You have already transferred ₹{voice_spent:,.2f} via voice today. "
+                    f"Your remaining daily voice transfer allowance is ₹{remaining_quota:,.2f}."
+                )
 
             # Check Balance
             current_balance = getattr(db_sender, f"{source}_balance")

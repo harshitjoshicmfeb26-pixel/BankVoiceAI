@@ -1,30 +1,35 @@
 # Session Handoff & Continuity State — NidhiVani AI
 
-**Date:** October 3, 2026 (Afternoon Session Checkpoint)  
-**Status:** All code staged, compound branch/product query disambiguation resolved, tests passing 100% (26/26), live server active on port 8001.
+**Date:** October 4, 2026 (Evening Session Checkpoint)  
+**Status:** All transfer caps enforced, fictional contact info purged, README/JWT secrets resilient, all tests passing (26/26 RAG + 3/3 Transfer Security), clean working state.
 
 ---
 
 ## 1. Accomplishments & Latest Updates
 
-### Compound Branch + Product Query Disambiguation (Solved):
-* **Root Cause Identified**:
-  When a user submitted a query containing both a branch name and a product policy (e.g., *"pune waali branch main fd ka interest rate kya milega?"*), the RAG matching in `rag_service.py` gave a city phrase boost (+6) to the Pune Branch chunk without sufficient weight given to product anchors or rate policies. As a result, the Support Specialist received the branch address chunk and answered with the branch address instead of the Fixed Deposit interest rates.
+### 1. Fictional Contact Info Cleanup (Purged):
+* **Root Cause & Rationale**: NidhiVani AI is a simulated prototype platform. Fictional toll-free numbers (`1800-123-NIDHI`, `1800-123-64344`) and fake external email addresses (`support@nidhivani.in`, `grievance@nidhivani.in`) were misleading.
 * **Fixes Implemented**:
-  1. **Colloquial Stop Words**: Added `"main"`, `"wali"`, `"waali"`, `"wala"`, `"wale"` to `stop_words` in [rag_service.py](file:///c:/Users/HARSH/AI_Work/BankVoiceAI/rag_service.py).
-  2. **Product Anchors**: Added dedicated detection for FD, Savings, Loan, and RD (`is_fd_query`, `is_savings_query`, etc.) granting a +8 anchor boost.
-  3. **Policy Priority Hierarchy**: When a policy/rate intent is detected without location/address intent (`has_policy_intent and not has_location_intent`), chunks in rates/limits/compliance receive a +4 priority boost.
-  4. **Multi-Word Key Phrases**: Added `"interest rate"`, `"interest rates"`, `"ब्याज दर"`, `"व्याज दर"` to phrase boosts (+6).
-  5. **Model Quota Management**: Transitioned LLMs in [agents_graph.py](file:///c:/Users/HARSH/AI_Work/BankVoiceAI/agents_graph.py) and [assistant.py](file:///c:/Users/HARSH/AI_Work/BankVoiceAI/assistant.py) to `gemini-3.5-flash` to prevent `429 RESOURCE_EXHAUSTED` errors on exhausted model quotas.
+  1. Updated Chunk 18 in [rag_service.py](file:///c:/Users/HARSH/AI_Work/BankVoiceAI/rag_service.py) to **"Customer Support & In-App Helpdesk"**, directing customers to in-app voice assistance, the self-service web portal, and physical branch desks.
+  2. Updated RAG fallback responses to remove phone numbers and advise self-service portal/branch inquiries.
+  3. Updated [test_rag_comprehensive.py](file:///c:/Users/HARSH/AI_Work/BankVoiceAI/test_rag_comprehensive.py) (TC-18) to validate in-app support retrieval without requiring phone numbers.
 
-### Verification & Live Testing:
-* **Live HTTP Verification** ([http://127.0.0.1:8001/api/chat](http://127.0.0.1:8001/api/chat)):
-  - Query: *"pune waali branch main fd ka interest rate kya milega?"*  
-    $\rightarrow$ Response: *"पुणे शाखा में फिक्स्ड डिपॉजिट (FD) पर ब्याज दरें 1 साल के लिए 6.80% और 3 साल के लिए अधिकतम 7.10% हैं। वरिष्ठ नागरिकों को सभी अवधियों पर 0.50% का अतिरिक्त ब्याज मिलता है।"* (100% Devanagari Hindi, exact rates provided).
-  - Query: *"pune branch cha ifsc code kay ahe"*  
-    $\rightarrow$ Response: *"पुणे शाखेचा आयएफएससी (IFSC) कोड NIDH0002001 हा आहे. ही शाखा फर्ग्युसन कॉलेज रोड, डेक्कन जिमखाना येथे स्थित आहे।"* (100% Devanagari Marathi, exact IFSC and location).
-* **Comprehensive Test Suite**:
-  - [test_rag_comprehensive.py](file:///c:/Users/HARSH/AI_Work/BankVoiceAI/test_rag_comprehensive.py): **26/26 tests passing (100.0%)** with an average latency of **2.12 ms** per query.
+### 2. Voice Fund Transfer Caps (3-Tier Enforcement):
+* **Problem**: The knowledge base documented a ₹10,000 per-transaction cap and ₹25,000 daily limit for voice banking, but code previously had zero enforcement.
+* **Fixes Implemented**:
+  1. **Layer 1 (LLM Prompt Guardrail)**: Added strict instructions to `Account Specialist` in [agents_graph.py](file:///c:/Users/HARSH/AI_Work/BankVoiceAI/agents_graph.py) to immediately refuse voice transfers > ₹10,000 without invoking tools.
+  2. **Layer 2 (Deterministic Tool Guard)**: Added `MAX_VOICE_TX_CAP = 10000.0` and `MAX_VOICE_DAILY_CAP = 25000.0` in [assistant.py](file:///c:/Users/HARSH/AI_Work/BankVoiceAI/assistant.py). `send_money` blocks transfers > ₹10,000 and calculates cumulative today's transfers to reject breaches with remaining daily quota.
+  3. **Layer 3 (Pre-Execution MPIN Gatekeeper)**: In [routers/chat.py](file:///c:/Users/HARSH/AI_Work/BankVoiceAI/routers/chat.py), added pre-execution validation before balance debit.
+  4. **Web Portal IMPS Limits**: Enforced ₹2,00,000 per tx and ₹5,00,000 daily IMPS limits in [routers/payments.py](file:///c:/Users/HARSH/AI_Work/BankVoiceAI/routers/payments.py).
+  5. **Verification Suite**: Created [test_transfer_caps.py](file:///c:/Users/HARSH/AI_Work/BankVoiceAI/test_transfer_caps.py) verifying 3/3 security test cases.
+
+### 3. README & Environment Variable Robustness:
+* **Fix**: Documented `JWT_SECRET` in [README.md](file:///c:/Users/HARSH/AI_Work/BankVoiceAI/README.md) line 112 (matching `.env.template`).
+* **Resiliency**: Updated [utils.py](file:///c:/Users/HARSH/AI_Work/BankVoiceAI/utils.py) line 212 to check `os.getenv("JWT_SECRET") or os.getenv("SECRET_KEY")`, preventing startup crashes under either variable name.
+
+### 4. Verification & Test Status:
+* [test_rag_comprehensive.py](file:///c:/Users/HARSH/AI_Work/BankVoiceAI/test_rag_comprehensive.py): **26/26 tests passing (100.0%)** (average latency ~1.8 ms).
+* [test_transfer_caps.py](file:///c:/Users/HARSH/AI_Work/BankVoiceAI/test_transfer_caps.py): **3/3 security tests passing (100.0%)**.
 
 ---
 
@@ -37,15 +42,30 @@
 
 ---
 
-## 3. Next Steps
+## 3. Next Steps & Architecture Plan: Offline Hybrid Agentic RAG
 
-1. **User Acceptance Testing**:
-   - Open [http://127.0.0.1:8001](http://127.0.0.1:8001) in browser and test queries in the web UI.
-2. **Commit & Push**:
-   ```bash
-   git add -A
-   git commit -m "fix: compound branch/rate query disambiguation and switch to gemini-3.5-flash"
-   git push origin main
-   ```
-3. **Resume Mastering Roadmap**:
-   - Module 13: Prompt Engineering & Guardrail Policies.
+### Architectural Blueprint (Ready for Implementation):
+1. **Offline Multilingual Embedding Model**:
+   * Model: `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (384 dimensions, ~120MB-400MB).
+   * Supports: English, Hindi (हिन्दी / Hinglish), Marathi (मराठी).
+   * Execution: 100% local CPU inference via `fastembed` / `onnxruntime` (<20ms).
+2. **PostgreSQL pgvector Integration**:
+   * Extension: `CREATE EXTENSION IF NOT EXISTS vector;` (verified in `test_pgvector.py`).
+   * Schema: Add `embedding = Column(Vector(384))` to `BankKnowledgeChunk` in `models.py`.
+   * Seeding: Pre-compute and store embeddings for all knowledge chunks on database init.
+3. **Hybrid Retrieval (Dense + Sparse with RRF)**:
+   * **Dense**: Vector cosine distance search (`<=>` operator) for semantic intent and cross-lingual meaning.
+   * **Sparse**: Existing token/stem and phrase boost matching in `rag_service.py` for exact figures (rates, limits, codes).
+   * **Fusion**: Reciprocal Rank Fusion (RRF) combining top candidate lists into a final re-ranked set.
+4. **Agentic Loops (Self-RAG / CRAG)**:
+   * Local query normalization / expansion before retrieval.
+   * Retrieval confidence grading and fallback to clarification.
+
+---
+
+## 4. How to Resume This Task
+
+Whenever you return, simply type:
+👉 **"Resume Offline Hybrid Agentic RAG implementation"**
+(or **"Continue from SESSION_HANDOFF.md"**)
+

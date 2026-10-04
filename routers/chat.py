@@ -191,6 +191,28 @@ async def chat_endpoint(
                             sender_balance = getattr(db_sender, f"{source}_balance")
                             if sender_balance < amount:
                                 raise Exception(f"Insufficient funds in your {source} account. Current balance is ₹{sender_balance:.2f}.")
+
+                            # Security Rule: Enforce voice transfer limits at execution gate
+                            if amount > 10000.0:
+                                raise Exception("Voice-initiated fund transfers are strictly capped at ₹10,000 per transaction.")
+
+                            today_prefix = datetime.datetime.now().strftime("%Y-%m-%d")
+                            recent_voice_txs = session.exec(
+                                select(TransactionTable).where(
+                                    TransactionTable.username == username,
+                                    TransactionTable.type.ilike("debit"),
+                                    TransactionTable.date.like(f"{today_prefix}%")
+                                )
+                            ).all()
+                            voice_spent = sum(
+                                t.amount for t in recent_voice_txs
+                                if (t.channel and t.channel.lower() == "voice") or ("(via voice)" in (t.description or "").lower())
+                            )
+                            if voice_spent + amount > 25000.0:
+                                remaining_quota = max(0.0, 25000.0 - voice_spent)
+                                raise Exception(
+                                    f"Daily voice transfer limit of ₹25,000 exceeded. Already transferred ₹{voice_spent:,.2f} today. Remaining daily allowance: ₹{remaining_quota:,.2f}."
+                                )
                             
                             # Update balances
                             setattr(db_sender, f"{source}_balance", sender_balance - amount)

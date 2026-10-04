@@ -176,11 +176,11 @@ KNOWLEDGE_CHUNKS = [
     {
         "doc_id": "branches_and_contacts",
         "category": "branches",
-        "title": "Customer Support Toll-Free & Contacts",
-        "content_en": "You can reach NidhiVani AI customer care 24x7 on our toll-free number 1800-123-NIDHI (1800-123-64344) or via email at support@nidhivani.in. For unresolved grievances, contact our Principal Nodal Officer at grievance@nidhivani.in.",
-        "content_hi": "आप निधिवानी एआई कस्टमर केयर से हमारे टोल-फ्री नंबर 1800-123-NIDHI (1800-123-64344) पर 24x7 संपर्क कर सकते हैं, या support@nidhivani.in पर ईमेल कर सकते हैं।",
-        "content_mr": "तुम्ही निधिवानी एआय ग्राहक सेवेशी आमच्या टोल-फ्री क्रमांक 1800-123-NIDHI (1800-123-64344) वर 24x7 संपर्क करू शकता किंवा support@nidhivani.in वर ईमेल करू शकता.",
-        "keywords": "customer care toll free phone number helpline contact email grievance ग्राहक सेवा टोल फ्री फोन नंबर संपर्क ईमेल तक्रार"
+        "title": "Customer Support & In-App Helpdesk",
+        "content_en": "NidhiVani AI provides 24x7 customer support directly through this conversational AI Voice Banking Assistant and the digital banking portal. For specialized banking operations or in-person service, customers can visit our branch service desks in Mumbai, Pune, and New Delhi during operating hours.",
+        "content_hi": "निधिवानी एआई इस संवादात्मक एआई वॉयस बैंकिंग सहायक और डिजिटल बैंकिंग पोर्टल के माध्यम से 24x7 ग्राहक सेवा प्रदान करता है। विशेष बैंकिंग कार्यों या व्यक्तिगत सेवा के लिए, ग्राहक कार्य समय के दौरान मुंबई, पुणे और नई दिल्ली में हमारे शाखा डेस्क पर जा सकते हैं।",
+        "content_mr": "निधिवानी एआय या संवादात्मक एआय व्हॉइस बँकिंग असिस्टंट आणि डिजिटल बँकिंग पोर्टलद्वारे 24x7 ग्राहक सहाय्य प्रदान करते. विशेष बँकिंग कामांसाठी किंवा प्रत्यक्ष सेवेसाठी, ग्राहक कामकाजाच्या वेळेत मुंबई, पुणे आणि नवी दिल्ली येथील आमच्या शाखा डेस्कला भेट देऊ शकतात.",
+        "keywords": "customer care support helpdesk in-app assistance contact portal ग्राहक सेवा मदत सहाय्य संपर्क शाखा डिजिटल पोर्टल"
     }
 ]
 
@@ -479,11 +479,11 @@ def search_knowledge_base(query: str, language: str = "en-in") -> Dict[str, Any]
             }
         else:
             if "hi" in lang_clean:
-                fallback = "मुझे इस विषय पर बैंक की आधिकारिक नीति की सटीक जानकारी नहीं मिली। कृपया हमारे टोल-फ्री नंबर 1800-123-64344 पर संपर्क करें या नजदीकी शाखा में जाएं।"
+                fallback = "मुझे इस विषय पर बैंक की आधिकारिक नीति की सटीक जानकारी नहीं मिली। कृपया अपने प्रश्न को पुनः पूछें या डिजिटल बैंकिंग पोर्टल देखें अथवा नजदीकी शाखा में संपर्क करें।"
             elif "mr" in lang_clean:
-                fallback = "मला या विषयावर बँकेच्या अधिकृत धोरणाची अचूक माहिती मिळाली नाही. कृपया आमच्या 1800-123-64344 या टोल-फ्री क्रमांकावर संपर्क साधा किंवा जवळच्या शाखेला भेट द्या."
+                fallback = "मला या विषयावर बँकेच्या अधिकृत धोरणाची अचूक माहिती मिळाली नाही. कृपया आपला प्रश्न पुन्हा विचारा किंवा डिजिटल बँकिंग पोर्टल तपासा अथवा जवळच्या शाखेला भेट द्या."
             else:
-                fallback = "I could not find an official bank policy record matching your inquiry. Please call our 24x7 customer care at 1800-123-NIDHI or visit your nearest branch."
+                fallback = "I could not find an official bank policy record matching your inquiry. Please try rephrasing your question or check the digital banking portal / visit your nearest branch."
 
             return {
                 "found": False,

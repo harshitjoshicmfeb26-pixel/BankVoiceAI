@@ -237,7 +237,9 @@ def account_agent_node(state: AgentState):
         f"- DO NOT output English sentences if the target language is Hindi or Marathi.\n\n"
         f"OPERATIONAL INSTRUCTIONS:\n"
         f"Use the tools provided to access their accounts or send money. "
-        f"If they ask to send money, use the send_money tool. Always verify if they specify checking/savings source; default to savings if unspecified. "
+        f"VOICE FUND TRANSFER SECURITY LIMITS: Voice fund transfers are strictly capped at ₹10,000 per transaction and ₹25,000 daily cumulative limit. "
+        f"If the user asks to send more than ₹10,000 via voice/chat, DO NOT invoke the send_money tool. Immediately inform them that voice transfers are strictly capped at ₹10,000 for fraud mitigation, and instruct them to use the internet banking portal or visit a branch for larger transfers. "
+        f"If the amount is ₹10,000 or less, use the send_money tool. Always verify if they specify checking/savings source; default to savings if unspecified. "
         f"If they ask for transaction history, use the get_transaction_history tool. "
         f"Keep your responses friendly, polite, and very short, optimized for voice text-to-speech."
     )

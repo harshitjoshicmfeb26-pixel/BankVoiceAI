@@ -109,7 +109,7 @@ cp .env.template .env
 Ensure the following variables are configured:
 * `DATABASE_URL`: `postgresql://postgres:<password>@localhost:5432/banking`
 * `GEMINI_API_KEY`: Your Google AI Studio API key.
-* `SECRET_KEY`: Random secret string for JWT token generation.
+* `JWT_SECRET`: Random secret string for JWT token generation (matching `.env.template`).
 
 ### 4. Database Initialization & Seeding
 Start the server or run the test suite to automatically initialize tables and seed the 18 multilingual knowledge base chunks:
