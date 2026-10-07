@@ -1,13 +1,12 @@
-"""
-rag_service.py - Local PostgreSQL Knowledge Base & Offline Retrieval Service for NidhiVani AI.
-Provides fast keyword, semantic tag, and full-text retrieval across English, Hindi, and Marathi.
-Zero external embedding model downloads, zero third-party vector cloud services.
-"""
-
+import os
 import re
 from typing import List, Dict, Any, Optional
+import torch
+import torch.nn.functional as F
+from transformers import AutoTokenizer, AutoModel
 from sqlmodel import Session, select
 from sqlalchemy import text
+from pgvector.sqlalchemy import Vector
 from models import BankKnowledgeChunk
 from database import engine
 
@@ -48,7 +47,7 @@ KNOWLEDGE_CHUNKS = [
         "content_en": "Our loan interest rates: Home loans start at 8.40% p.a., Car loans are fixed at 8.75% p.a., Personal loans start from 10.50% (minimum CIBIL 720 required), and Gold loans start at 8.25% p.a.",
         "content_hi": "हमारे ऋण (लोन) की ब्याज दरें: होम लोन 8.40% से शुरू, कार लोन 8.75% फिक्स्ड, पर्सनल लोन 10.50% से (न्यूनतम सिबिल 720 आवश्यक), और गोल्ड लोन 8.25% से शुरू हैं।",
         "content_mr": "आमचे कर्ज (लोन) व्याजदर: गृहकर्ज (Home Loan) 8.40% पासून, कार लोन 8.75% फिक्स, वैयक्तिक कर्ज (Personal Loan) 10.50% पासून (किमान CIBIL 720 आवश्यक), आणि सुवर्ण कर्ज 8.25% पासून सुरू आहे.",
-        "keywords": "loan home loan car loan personal loan gold loan interest rate emi cibil ऋण लोन कर्ज गृहकर्ज गाडी कर्ज पर्सनल लोन व्याज दर सिबिल"
+        "keywords": "loan home loan car loan personal loan gold loan interest rate emi cibil borrow borrowing flat house apartment property purchase mortgage ऋण लोन कर्ज गृहकर्ज गाडी कर्ज पर्सनल लोन व्याज दर सिबिल घर फ्लॅट"
     },
     {
         "doc_id": "interest_rates_and_charges",
@@ -115,7 +114,7 @@ KNOWLEDGE_CHUNKS = [
         "content_en": "In case of any unauthorized transaction, report immediately to the National Cyber Crime Helpline at 1930 or visit cybercrime.gov.in. Under RBI rules, reporting unauthorized fraud within 72 hours (3 working days) grants zero customer liability.",
         "content_hi": "किसी भी अनधिकृत या धोखाधड़ी लेनदेन के मामले में, तुरंत राष्ट्रीय साइबर क्राइम हेल्पलाइन 1930 पर कॉल करें या cybercrime.gov.in पर जाएं। आरबीआई नियमों के अनुसार, 72 घंटों (3 कार्यदिवसों) के भीतर सूचना देने पर ग्राहक की देनदारी शून्य (Zero Liability) होती है।",
         "content_mr": "कोणत्याही अनधिकृत किंवा संशयास्पद व्यवहाराची तक्रार त्वरित राष्ट्रीय सायबर हेल्पलाइन 1930 वर किंवा cybercrime.gov.in वर नोंदवा. आरबीआय नियमांनुसार, 72 तासांच्या आत तक्रार केल्यास ग्राहकाचे कोणतेही नुकसान होत नाही (Zero Liability).",
-        "keywords": "fraud cyber fraud scam unauthorized 1930 helpline liability zero liability सायबर गुन्हे फसवणूक तक्रार हेल्पलाइन 1930 अनधिकृत फसवणूक धोखाधड़ी देनदारी जीरो देनदारी शून्य देनदारी रिपोर्ट फ्रॉड फ्राड ट्रांजैक्शन"
+        "keywords": "fraud cyber fraud scam unauthorized 1930 helpline liability zero liability stolen unauthorized debit dispute सायबर गुन्हे फसवणूक तक्रार हेल्पलाइन 1930 अनधिकृत फसवणूक धोखाधड़ी देनदारी जीरो देनदारी शून्य देनदारी रिपोर्ट फ्रॉड फ्राड ट्रांजैक्शन पैसे कापले पैसे कट कापले दाद चोरी"
     },
     {
         "doc_id": "kyc_and_fraud_protection",
@@ -184,6 +183,71 @@ KNOWLEDGE_CHUNKS = [
     }
 ]
 
+# --- Local Offline Embedding Engine (384-dimensional multilingual MiniLM) ---
+_MODEL_DIR = os.path.join(os.path.dirname(__file__), "local_models", "multilingual_minilm")
+_TOKENIZER = None
+_TRANSFORMER_MODEL = None
+
+def get_embedding_pipeline():
+    """Lazy-loads the local multilingual MiniLM model and tokenizer as a thread-safe singleton."""
+    global _TOKENIZER, _TRANSFORMER_MODEL
+    if _TOKENIZER is None or _TRANSFORMER_MODEL is None:
+        if os.path.exists(_MODEL_DIR):
+            try:
+                tok = AutoTokenizer.from_pretrained(_MODEL_DIR, local_files_only=True)
+                mod = AutoModel.from_pretrained(_MODEL_DIR, local_files_only=True)
+                mod.eval()
+                _TOKENIZER = tok
+                _TRANSFORMER_MODEL = mod
+            except Exception as e:
+                print(f"[RAG Embedder] Warning: Could not load local model from {_MODEL_DIR}: {e}")
+    return _TOKENIZER, _TRANSFORMER_MODEL
+
+def compute_embedding(text: str) -> Optional[List[float]]:
+    """
+    Computes a 384-dimensional normalized dense embedding for a given text using
+    the local multilingual MiniLM model on CPU (with mean pooling & L2 normalization).
+    """
+    if not text or not text.strip():
+        return None
+    tok, mod = get_embedding_pipeline()
+    if tok is None or mod is None:
+        return None
+    try:
+        encoded = tok(text.strip(), padding=True, truncation=True, max_length=128, return_tensors="pt")
+        with torch.no_grad():
+            outputs = mod(**encoded)
+            input_mask_expanded = encoded["attention_mask"].unsqueeze(-1).expand(outputs.last_hidden_state.size()).float()
+            sum_embeddings = torch.sum(outputs.last_hidden_state * input_mask_expanded, 1)
+            sum_mask = torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+            mean_pooled = sum_embeddings / sum_mask
+            normalized = F.normalize(mean_pooled, p=2, dim=1)
+            return normalized[0].tolist()
+    except Exception as e:
+        print(f"[RAG Embedder] Embedding error: {e}")
+        return None
+
+def compute_batch_embeddings(texts: List[str]) -> List[Optional[List[float]]]:
+    """Computes dense embeddings for a batch of texts in a single forward pass."""
+    if not texts:
+        return []
+    tok, mod = get_embedding_pipeline()
+    if tok is None or mod is None:
+        return [None] * len(texts)
+    try:
+        encoded = tok(texts, padding=True, truncation=True, max_length=128, return_tensors="pt")
+        with torch.no_grad():
+            outputs = mod(**encoded)
+            input_mask_expanded = encoded["attention_mask"].unsqueeze(-1).expand(outputs.last_hidden_state.size()).float()
+            sum_embeddings = torch.sum(outputs.last_hidden_state * input_mask_expanded, 1)
+            sum_mask = torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+            mean_pooled = sum_embeddings / sum_mask
+            normalized = F.normalize(mean_pooled, p=2, dim=1)
+            return [vec.tolist() for vec in normalized]
+    except Exception as e:
+        print(f"[RAG Embedder] Batch embedding error: {e}")
+        return [None] * len(texts)
+
 def detect_query_language(query: str, requested_lang: str = "en-in") -> str:
     """
     Intelligently detects whether the query is in Marathi, Hindi, or English.
@@ -204,7 +268,8 @@ def detect_query_language(query: str, requested_lang: str = "en-in") -> str:
             "शिल्लक", "बँकेचा", "बँकेची", "बँकेचे", "खाते", "खात्याचा", "खात्यातील", 
             "पाहिजे", "करा", "करावे", "करावी", "मिळेल", "होईल", "हवे", "माझा", "माझी", 
             "माझे", "तुमचा", "तुमची", "तुमचे", "च्या", "ची", "चे", "वरून", "कडून", 
-            "मध्ये", "मुदत", "ठेव", "कर्ज", "गृहकर्ज", "पुण्यात", "पुण्याची", "मुंबईत"
+            "मध्ये", "मुदत", "ठेव", "कर्ज", "गृहकर्ज", "पुण्यात", "पुण्याची", "मुंबईत",
+            "माझ्या", "खात्यातून", "खात्यावरून", "गेले", "झाले", "तर", "मी", "कोठे", "दाद", "मागायची", "कापले", "कट"
         ]
         
         # Distinctive Hindi lexical markers and inflections
@@ -271,19 +336,33 @@ def detect_query_language(query: str, requested_lang: str = "en-in") -> str:
     return (requested_lang or "en-in").lower().strip()
 
 def init_knowledge_base(force: bool = False):
-    """Ensure the bank_knowledge_chunk table is created and seeded with the 18 authoritative multilingual chunks."""
+    """Ensure the bank_knowledge_chunk table is created and seeded with 18 authoritative chunks + dense pgvector embeddings."""
     from sqlmodel import SQLModel
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         existing = session.exec(select(BankKnowledgeChunk)).first()
         count = len(session.exec(select(BankKnowledgeChunk)).all())
-        # Re-seed if forced or if chunk count has changed
-        if not existing or count != len(KNOWLEDGE_CHUNKS) or force:
+        needs_reseed = force or not existing or count != len(KNOWLEDGE_CHUNKS)
+        
+        # Check if any chunk in the database is missing its embedding vector
+        if not needs_reseed:
+            null_emb = session.exec(select(BankKnowledgeChunk).where(BankKnowledgeChunk.embedding == None)).first()
+            if null_emb:
+                needs_reseed = True
+
+        if needs_reseed:
             for c in session.exec(select(BankKnowledgeChunk)).all():
                 session.delete(c)
             session.commit()
-            print(f"[RAG] Seeding {len(KNOWLEDGE_CHUNKS)} authoritative multilingual policy chunks into PostgreSQL...")
-            for chunk_data in KNOWLEDGE_CHUNKS:
+            print(f"[RAG] Computing offline multilingual embeddings for {len(KNOWLEDGE_CHUNKS)} policy chunks...")
+            texts_to_embed = [
+                f"{c['title']}. {c['content_en']} {c['content_hi']} {c['content_mr']} {c['keywords']}"
+                for c in KNOWLEDGE_CHUNKS
+            ]
+            embeddings = compute_batch_embeddings(texts_to_embed)
+            print(f"[RAG] Seeding {len(KNOWLEDGE_CHUNKS)} chunks with dense pgvector embeddings into PostgreSQL...")
+            for i, chunk_data in enumerate(KNOWLEDGE_CHUNKS):
+                emb = embeddings[i] if i < len(embeddings) else None
                 chunk = BankKnowledgeChunk(
                     doc_id=chunk_data["doc_id"],
                     category=chunk_data["category"],
@@ -291,11 +370,12 @@ def init_knowledge_base(force: bool = False):
                     content_en=chunk_data["content_en"],
                     content_hi=chunk_data["content_hi"],
                     content_mr=chunk_data["content_mr"],
-                    keywords=chunk_data["keywords"]
+                    keywords=chunk_data["keywords"],
+                    embedding=emb
                 )
                 session.add(chunk)
             session.commit()
-            print(f"[RAG] Seeded {len(KNOWLEDGE_CHUNKS)} chunks into bank_knowledge_chunk successfully.")
+            print(f"[RAG] Seeded {len(KNOWLEDGE_CHUNKS)} chunks with pgvector embeddings successfully.")
 
 def search_knowledge_base(query: str, language: str = "en-in") -> Dict[str, Any]:
     """
@@ -359,7 +439,8 @@ def search_knowledge_base(query: str, language: str = "en-in") -> Dict[str, Any]
         "काय", "आहे", "तुमचे", "मला", "सांगा", "चे", "ची", "च्या", "मध्ये", "वर", "आहेत", "होते", "ना",
         "kya", "hai", "hain", "ho", "ka", "ki", "ke", "ko", "se", "mein", "main", "par", "batao", "bataiye",
         "wali", "waali", "wala", "wale",
-        "kay", "ahe", "aahe", "ahet", "cha", "chi", "che", "chya", "la", "sang", "sanga"
+        "kay", "ahe", "aahe", "ahet", "cha", "chi", "che", "chya", "la", "sang", "sanga",
+        "bank", "banking", "बैंक", "बँक"
     }
     meaningful_tokens = [t for t in tokens if t not in stop_words]
     if not meaningful_tokens:
@@ -405,9 +486,24 @@ def search_knowledge_base(query: str, language: str = "en-in") -> Dict[str, Any]
             init_knowledge_base(force=True)
             all_chunks = session.exec(select(BankKnowledgeChunk)).all()
 
-        best_chunk = None
-        highest_score = 0
+        # --- CHANNEL 1: Dense Semantic Retrieval (pgvector cosine distance) ---
+        query_vec = compute_embedding(cleaned_query)
+        dense_dist_map = {}
+        dense_rank_map = {}
+        if query_vec is not None:
+            try:
+                dist_col = BankKnowledgeChunk.embedding.cosine_distance(query_vec).label("distance")
+                dist_rows = session.exec(select(BankKnowledgeChunk.id, dist_col)).all()
+                for cid, dist_val in dist_rows:
+                    if dist_val is not None:
+                        dense_dist_map[cid] = float(dist_val)
+                sorted_by_dense = sorted(dense_dist_map.keys(), key=lambda cid: dense_dist_map[cid])
+                dense_rank_map = {cid: rank + 1 for rank, cid in enumerate(sorted_by_dense)}
+            except Exception as e:
+                print(f"[RAG Dense Retrieval] Notice: {e}")
 
+        # --- CHANNEL 2: Sparse Lexical Retrieval (Keyword, Stem, Phrase Boosts) ---
+        sparse_score_map = {}
         for chunk in all_chunks:
             kw_set = set(re.findall(r"[\w\u0900-\u097F]+", chunk.keywords.lower()))
             title_set = set(re.findall(r"[\w\u0900-\u097F]+", chunk.title.lower()))
@@ -456,12 +552,67 @@ def search_knowledge_base(query: str, language: str = "en-in") -> Dict[str, Any]
                 if chunk.category in ["rates", "limits", "compliance"] and any(t in kw_set for t in meaningful_tokens):
                     score += 4
 
-            if score > highest_score:
-                highest_score = score
-                best_chunk = chunk
+            sparse_score_map[chunk.id] = score
 
-        # Confidence threshold: score must be at least 4 (requires at least 1 keyword match or title+content hit)
-        if best_chunk and highest_score >= 4:
+        sorted_by_sparse = sorted(all_chunks, key=lambda c: sparse_score_map[c.id], reverse=True)
+        sparse_rank_map = {c.id: rank + 1 for rank, c in enumerate(sorted_by_sparse)}
+
+        # --- CHANNEL 3: Reciprocal Rank Fusion (Score-Aware RRF: k=60) ---
+        max_sparse = max(sparse_score_map.values()) if sparse_score_map else 1
+        max_dense_sim = max([max(0.0, 1.0 - d) for d in dense_dist_map.values()]) if dense_dist_map else 1.0
+
+        rrf_score_map = {}
+        for chunk in all_chunks:
+            cid = chunk.id
+            s_score = sparse_score_map.get(cid, 0)
+            s_rank = sparse_rank_map.get(cid, len(all_chunks))
+            d_dist = dense_dist_map.get(cid, 2.0)
+            d_sim = max(0.0, 1.0 - d_dist)
+            d_rank = dense_rank_map.get(cid, len(all_chunks))
+
+            # Channel-relative confidence weights
+            if max_sparse >= 4:
+                s_weight = (s_score / max_sparse)
+            else:
+                s_weight = (s_score / 12.0)
+            d_weight = (d_sim / max_dense_sim) if max_dense_sim > 0 else 0.0
+
+            rrf_s = (s_weight / (60.0 + s_rank)) if s_score > 0 else 0.0
+            rrf_d = (d_weight / (60.0 + d_rank)) if d_sim >= 0.20 else 0.0
+
+            # Product anchor boost
+            anchor_boost = 0.0
+            if is_fd_query and chunk.title.startswith("Fixed Deposit"):
+                anchor_boost = 0.02
+            elif is_savings_query and chunk.title.startswith("Savings"):
+                anchor_boost = 0.02
+            elif is_loan_query and chunk.title.startswith("Retail Loan"):
+                anchor_boost = 0.02
+            elif is_rd_query and chunk.title.startswith("Recurring Deposit"):
+                anchor_boost = 0.02
+
+            rrf_score_map[cid] = rrf_s + rrf_d + anchor_boost
+
+        # Identify winning candidate based on hybrid RRF score
+        best_chunk = max(all_chunks, key=lambda c: rrf_score_map[c.id])
+        best_sparse_score = sparse_score_map.get(best_chunk.id, 0)
+        best_rrf_score = rrf_score_map.get(best_chunk.id, 0.0)
+        best_dense_dist = dense_dist_map.get(best_chunk.id, 2.0)
+        best_dense_sim = max(0.0, 1.0 - best_dense_dist)
+
+        # --- AGENTIC CRAG CONFIDENCE GATEKEEPER ---
+        # High confidence if:
+        # 1) Sparse score >= 4 (strong keyword/phrase hit), OR
+        # 2) Dense similarity >= 0.35 (strong semantic match even with different phrasing), OR
+        # 3) Both sparse > 0 and dense similarity >= 0.22.
+        # Conversely, if sparse == 0 and dense < 0.32, mark as off-topic fallback.
+        has_confidence = (
+            (best_sparse_score >= 4) or 
+            (best_dense_sim >= 0.35) or 
+            (best_sparse_score > 0 and best_dense_sim >= 0.22)
+        )
+
+        if best_chunk and has_confidence and best_rrf_score > 0.0:
             if "hi" in lang_clean:
                 content = best_chunk.content_hi
             elif "mr" in lang_clean:
@@ -474,7 +625,9 @@ def search_knowledge_base(query: str, language: str = "en-in") -> Dict[str, Any]
                 "answer": content,
                 "title": best_chunk.title,
                 "category": best_chunk.category,
-                "score": highest_score,
+                "score": best_sparse_score,
+                "rrf_score": round(best_rrf_score, 4),
+                "dense_similarity": round(best_dense_sim, 4),
                 "detected_language": lang_clean
             }
         else:
@@ -490,6 +643,9 @@ def search_knowledge_base(query: str, language: str = "en-in") -> Dict[str, Any]
                 "answer": fallback,
                 "title": None,
                 "category": None,
-                "score": highest_score,
+                "score": best_sparse_score,
+                "rrf_score": round(best_rrf_score, 4),
+                "dense_similarity": round(best_dense_sim, 4),
                 "detected_language": lang_clean
             }
+

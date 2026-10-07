@@ -1,6 +1,8 @@
-from typing import Optional
+from typing import Optional, List
 
 from sqlmodel import SQLModel, Field
+from sqlalchemy import Column
+from pgvector.sqlalchemy import Vector
 
 # Database Models
 class UserTable(SQLModel, table=True):
@@ -50,3 +52,4 @@ class BankKnowledgeChunk(SQLModel, table=True):
     content_hi: str
     content_mr: str
     keywords: str = Field(index=True)
+    embedding: Optional[List[float]] = Field(default=None, sa_column=Column(Vector(384)))

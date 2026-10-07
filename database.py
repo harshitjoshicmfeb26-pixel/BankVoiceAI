@@ -2,7 +2,7 @@ import datetime
 import os
 from dotenv import load_dotenv
 from sqlmodel import SQLModel, create_engine, Session, select
-from models import UserTable, TransactionTable, FixedDepositTable
+from models import UserTable, TransactionTable, FixedDepositTable, BankKnowledgeChunk
 
 # Load environment variables
 load_dotenv()
@@ -14,12 +14,30 @@ engine = create_engine(database_url)
 # Helper to run migrations & seed data
 def init_db():
     from utils import hash_credential
+    from sqlalchemy import text, inspect
+
+    # Ensure pgvector extension is enabled on PostgreSQL before creating tables
+    if engine.dialect.name == "postgresql":
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+                conn.commit()
+        except Exception as vec_err:
+            print(f"[DB] Notice on CREATE EXTENSION vector: {vec_err}")
+
     SQLModel.metadata.create_all(engine)
     
     # Check if 'mpin' column exists in 'user' table, and add it if missing (migration)
-    from sqlalchemy import text, inspect
     inspector = inspect(engine)
     try:
+        # Check if 'embedding' column exists in 'bank_knowledge_chunk' table
+        if 'bank_knowledge_chunk' in inspector.get_table_names():
+            chunk_columns = [col['name'] for col in inspector.get_columns('bank_knowledge_chunk')]
+            if 'embedding' not in chunk_columns:
+                with engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE bank_knowledge_chunk ADD COLUMN embedding vector(384)"))
+                    conn.commit()
+
         columns = [col['name'] for col in inspector.get_columns('user')]
         user_table_name = '"user"' if engine.dialect.name == 'postgresql' else 'user'
         if 'mpin' not in columns:
